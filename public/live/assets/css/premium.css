@@ -1,0 +1,202 @@
+/* ============================================================
+   BT QUEUE LIVE V2 - PREMIUM NOC STYLE
+   Fiel ao Layout de Alta ConversÃ£o (Foto Ricardo)
+   ============================================================ */
+
+:root {
+    --header-blue: linear-gradient(135deg, #0019FF 0%, #0012CC 100%);
+    --bg-light: #F0F4F8;
+    --card-bg: #FFFFFF;
+    --text-dark: #1A1A1A;
+    --text-muted: #666666;
+    --accent-blue: #0019FF;
+    --success-green: #18C964;
+    --danger-red: #E5484D;
+    --promo-red: #D32F2F;
+}
+
+body {
+    background-color: var(--bg-light);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.live-container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* HEADER AZUL (Fiel Ã  Foto) */
+.premium-header {
+    background: var(--header-blue);
+    padding: 30px 20px;
+    border-radius: 0 0 30px 30px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 10px 20px rgba(0, 25, 255, 0.2);
+    margin-bottom: 25px;
+}
+
+.premium-header i { font-size: 32px; margin-bottom: 15px; display: block; }
+.premium-header h1 { font-size: 24px; margin: 0; font-weight: 800; letter-spacing: -0.5px; }
+.premium-header p { font-size: 14px; opacity: 0.9; margin-top: 5px; }
+
+/* CARD DE SENHA (Branco) */
+.ticket-card {
+    background: var(--card-bg);
+    margin: 0 20px 25px;
+    border-radius: 25px;
+    padding: 30px 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+    text-align: center;
+    position: relative;
+}
+
+.ticket-icon-top { width: 40px; margin-bottom: 10px; opacity: 0.5; }
+
+.ticket-number {
+    font-size: 90px;
+    font-weight: 900;
+    color: var(--accent-blue);
+    line-height: 1;
+    margin-bottom: 15px;
+    letter-spacing: -3px;
+}
+
+.status-badge {
+    background: #FFF9E6;
+    color: #856404;
+    padding: 12px 20px;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.status-dot { width: 14px; height: 12px; border-radius: 50%; background: var(--success-green); }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.stat-box {
+    background: #F8FAFC;
+    padding: 15px 5px;
+    border-radius: 15px;
+}
+
+.stat-box label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 5px; }
+.stat-box span { font-size: 18px; font-weight: 800; color: #333; }
+
+/* ÃREA DE PROMOÃ‡Ã•ES (Vermelha) */
+.promo-section {
+    background: #C62828;
+    margin: 0 0 20px;
+    border-radius: 20px;
+    overflow: hidden;
+    color: white;
+    position: relative;
+}
+
+.promo-client-header {
+    background: white;
+    padding: 15px;
+    text-align: center;
+}
+
+.promo-client-logo {
+    width: 100%;
+    max-height: 80px;
+    object-fit: contain;
+}
+
+.promo-banner-offer {
+    background: linear-gradient(to right, #FBC02D, #FFA000);
+    color: #000;
+    padding: 10px 20px;
+    font-weight: 900;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.promo-content {
+    background: white;
+    color: #333;
+    padding: 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.promo-img { width: 100px; height: 100px; object-fit: contain; border-radius: 10px; }
+.promo-info h4 { margin: 0; font-size: 18px; font-weight: 800; }
+.promo-price { color: var(--success-green); font-size: 24px; font-weight: 900; margin: 5px 0; }
+.promo-footer { padding: 10px 20px; font-size: 12px; opacity: 0.8; }
+
+/* MULTI-SENHA */
+.multi-ticket-tabs {
+    display: flex;
+    margin: 0 20px 15px;
+    gap: 10px;
+}
+
+.ticket-tab {
+    flex: 1;
+    background: #E2E8F0;
+    padding: 10px;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: bold;
+    color: #64748B;
+    cursor: pointer;
+}
+
+.ticket-tab.active {
+    background: var(--accent-blue);
+    color: white;
+}
+
+/* TELA DE EMISSÃƒO (MOBILE) */
+.view-emissao {
+    padding: 20px;
+    text-align: center;
+}
+
+.service-btn {
+    width: 100%;
+    padding: 25px;
+    border-radius: 20px;
+    border: none;
+    color: white;
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* FOOTER BRANDÃƒOTECH */
+.bt-footer {
+    margin-top: auto;
+    padding: 40px 20px;
+    text-align: center;
+    background: #F8FAFC;
+}
+
+.bt-footer p { font-size: 11px; color: #94A3B8; margin-bottom: 10px; }
+.bt-footer img { height: 30px; opacity: 0.8; }

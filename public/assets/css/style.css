@@ -1,0 +1,125 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+    background:#f4f7fb;
+    color:#222;
+}
+
+.container{
+    max-width:1200px;
+    margin:30px auto;
+    padding:20px;
+}
+
+header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:30px;
+}
+
+header h1{
+    color:#1565c0;
+    font-size:34px;
+}
+
+.status{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:bold;
+}
+
+.online{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    background:#18c964;
+}
+
+.painel{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.card{
+    background:#fff;
+    border-radius:12px;
+    padding:25px;
+    box-shadow:0 3px 15px rgba(0,0,0,.08);
+}
+
+.card h2{
+    margin-bottom:20px;
+    color:#1565c0;
+}
+
+#senhaAtual{
+    font-size:70px;
+    text-align:center;
+    font-weight:bold;
+    color:#1565c0;
+    margin-top:20px;
+}
+
+#guicheAtual{
+    text-align:center;
+    font-size:28px;
+    margin-top:15px;
+}
+
+#fila{
+    list-style:none;
+}
+
+#fila li{
+    padding:12px;
+    border-bottom:1px solid #eee;
+    font-size:22px;
+}
+
+.acoes{
+    margin-top:30px;
+    background:#fff;
+    border-radius:12px;
+    padding:20px;
+    box-shadow:0 3px 15px rgba(0,0,0,.08);
+}
+
+select{
+    width:100%;
+    padding:12px;
+    font-size:18px;
+    margin:10px 0 20px;
+}
+
+button{
+    width:100%;
+    padding:18px;
+    font-size:22px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    margin-top:10px;
+    transition:.2s;
+}
+
+#btnChamar{
+    background:#1565c0;
+    color:#fff;
+}
+
+#btnFinalizar{
+    background:#18c964;
+    color:#fff;
+}
+
+button:hover{
+    transform:scale(1.02);
+}

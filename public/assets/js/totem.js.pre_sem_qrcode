@@ -1,0 +1,148 @@
+/*
+==========================================================
+BT Queue Enterprise
+Módulo: Totem de Autoatendimento (Correção de JS Puro)
+Caminho: public/assets/js/totem.js
+==========================================================
+*/
+
+window.BT = window.BT || {};
+
+BT.totem = {
+    apiServicos: '/painel_v4/api/servicos.php',
+    apiSenhas: '/painel_v4/api/senhas.php',
+
+    init() {
+        this.carregarServicos();
+    },
+
+    async carregarServicos() {
+        const container = document.getElementById('containerServicos');
+        if (!container) return;
+
+        try {
+            const resposta = await fetch(this.apiServicos, { method: 'GET' });
+            const resultado = await resposta.json();
+
+            if (resultado && resultado.success && Array.isArray(resultado.data)) {
+                this.renderizarServicos(resultado.data);
+            } else {
+                container.innerHTML = '<div class="col-12 text-danger"><h5>Erro ao carregar serviços na API.</h5></div>';
+            }
+        } catch (erro) {
+            console.error('Erro:', erro);
+            container.innerHTML = '<div class="col-12 text-danger"><h5>Falha de rede ao carregar serviços.</h5></div>';
+        }
+    },
+
+    renderizarServicos(servicos) {
+        const container = document.getElementById('containerServicos');
+        if (!container) return;
+
+        if (servicos.length === 0) {
+            container.innerHTML = '<div class="col-12 text-muted"><h5>Nenhum serviço ativo.</h5></div>';
+            return;
+        }
+
+        // Renderiza usando as classes exatas do seu projeto (bt-button, etc)
+        container.innerHTML = servicos.map(servico => `
+            <div class="col-12 col-md-4 mb-3">
+                <button type="button" 
+                        class="bt-button bt-primary w-100 p-4"
+                        style="background-color: ${servico.cor || '#4e73df'}; border: none; min-height: 100px; font-size: 22px; font-weight: 700;"
+                        onclick="BT.totem.emitirSenha(${parseInt(servico.id)})">
+                    ${servico.icone || '📋'} ${servico.nome}
+                </button>
+            </div>
+        `).join('');
+    },
+
+    async emitirSenha(servicoId) {
+        try {
+            const resposta = await fetch(this.apiSenhas, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ servico_id: parseInt(servicoId) })
+            });
+            const resultado = await resposta.json();
+
+            if (resultado && resultado.success && resultado.data) {
+                this.mostrarSenha(resultado.data);
+            } else {
+                alert(resultado.message || 'Erro ao gerar senha.');
+            }
+        } catch (erro) {
+            console.error('Erro ao emitir:', erro);
+            alert('Falha na comunicação com a API de senhas.');
+        }
+    },
+
+    mostrarSenha(dados) {
+        const displaySenha = document.getElementById('displaySenha');
+        const displayServico = document.getElementById('displayServico');
+        const qrcodeContainer = document.getElementById('qrcodeContainer');
+
+        if (displaySenha) displaySenha.innerText = dados.senha;
+        if (displayServico) displayServico.innerText = dados.servico_nome || 'Atendimento';
+
+        if (qrcodeContainer) {
+            qrcodeContainer.innerHTML = '';
+            try {
+                const urlAcompanhamento = window.location.origin + '/painel_v4/public/acompanhar.php?uuid=' + dados.cliente_uuid;
+                
+                // Geração do QR Code usando a biblioteca qrcode-generator nativa
+                const qr = qrcode(4, 'M');
+                qr.addData(urlAcompanhamento);
+                qr.make();
+                
+                // Cria a imagem
+                const imgTag = qr.createImgTag(5, 10);
+                
+                // Injeta a imagem e os textos do seu produto
+                qrcodeContainer.innerHTML = imgTag + 
+                    '<div class="mt-3 text-muted small">' +
+                    '<strong>📱 Escaneie este QR Code para acompanhar sua senha no celular.</strong><br>' +
+                    'Você não precisa permanecer olhando para a TV.<br>' +
+                    '<span class="text-primary fw-bold d-block mt-2">⏱️ Tempo estimado de espera: 15 min</span>' +
+                    '</div>';
+            } catch (err) {
+                console.error('Erro QR:', err);
+                qrcodeContainer.innerHTML = '<span class="text-danger">Erro ao gerar código de barras digital.</span>';
+            }
+        }
+
+        // Abre o modal usando JavaScript nativo puro, sem depender de versão do Bootstrap
+        const modalElement = document.getElementById('modalSenhaTotem');
+        if (modalElement) {
+            // Remove classes antigas de trava se houver e força a exibição padrão do Bootstrap
+            modalElement.classList.add('show');
+            modalElement.style.display = 'block';
+            document.body.classList.add('modal-open');
+            
+            // Cria o fundo escuro do modal se não existir
+            if (!document.querySelector('.modal-backdrop')) {
+                const backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
+            }
+        }
+    }
+};
+
+// Vincula o botão de fechar do seu modal para limpar a tela corretamente
+document.addEventListener('click', function(e) {
+    if (e.target && (e.target.id === 'btnFecharModal' || e.target.getAttribute('data-dismiss') === 'modal')) {
+        const modalElement = document.getElementById('modalSenhaTotem');
+        if (modalElement) {
+            modalElement.classList.remove('show');
+            modalElement.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    BT.totem.init();
+});

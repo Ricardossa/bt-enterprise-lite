@@ -1,0 +1,72 @@
+BT.config = {
+
+    async carregar() {
+
+        try {
+
+            const resposta = await fetch("api/configuracoes.php?v=" + Date.now());
+
+            const json = await resposta.json();
+
+            if (!json.success) {
+                throw new Error("Erro ao carregar configurações.");
+            }
+
+            const config = json.data;
+
+            // Nome da empresa
+            const titulo = document.getElementById("empresaNome");
+
+            if (titulo && config.empresa) {
+                titulo.textContent = config.empresa;
+            }
+
+            // Logo
+            const logo = document.getElementById("empresaLogo");
+
+            if (logo) {
+                logo.src = "uploads/logo.png?v=" + Date.now();
+            }
+
+            // Campo empresa (Configurações)
+            const campoEmpresa = document.getElementById("empresa");
+
+            if (campoEmpresa && config.empresa) {
+                campoEmpresa.value = config.empresa;
+            }
+
+            // Guichês
+            const select = document.getElementById("guiche");
+
+            if (select && config.guiches) {
+
+                select.innerHTML = "";
+
+                Object.entries(config.guiches).forEach(([codigo, nome]) => {
+
+                    const option = document.createElement("option");
+
+                    option.value = codigo;
+                    option.textContent = nome;
+
+                    select.appendChild(option);
+
+                });
+
+            }
+
+        } catch (erro) {
+
+            console.error("Erro ao carregar configurações:", erro);
+
+        }
+
+    }
+
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    BT.config.carregar();
+
+});

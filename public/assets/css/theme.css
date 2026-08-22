@@ -1,0 +1,35 @@
+:root{
+
+    --bg:#081421;
+    --sidebar:#0D1B2A;
+    --card:#132238;
+
+    --primary:#1565C0;
+    --secondary:#1DB4FF;
+
+    --success:#18C964;
+    --danger:#FF4D4D;
+    --warning:#FFC107;
+
+    --text:#FFFFFF;
+    --text2:#B8C7D9;
+
+    --border:#1E3552;
+
+    --radius:12px;
+
+    --shadow:0 5px 20px rgba(0,0,0,.25);
+
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Segoe UI,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+}

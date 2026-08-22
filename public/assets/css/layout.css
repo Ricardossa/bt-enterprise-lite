@@ -1,0 +1,636 @@
+.sidebar{
+    overflow-y:auto;
+    overflow-x:hidden;
+    height:100vh;
+
+
+    position:fixed;
+
+    left:0;
+    top:0;
+
+    width:250px;
+
+    height:100vh;
+
+    background:var(--sidebar);
+
+    border-right:1px solid var(--border);
+
+}
+
+.logo{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:10px;
+    padding:30px 20px;
+    border-bottom:1px solid var(--border);
+}
+
+.logo-icon{
+
+    width:55px;
+
+    height:55px;
+
+    border-radius:50%;
+
+    background:var(--primary);
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-weight:bold;
+
+    font-size:22px;
+
+}
+
+.logo span{
+
+    color:var(--text2);
+
+    font-size:13px;
+
+}
+
+.logo-text{
+
+    flex:1;
+
+    min-width:0;
+
+}
+
+.logo-text h2{
+    margin:0;
+    font-size:16px;
+    line-height:1.25;
+    word-break:break-word;
+    overflow-wrap:anywhere;
+}
+
+.sidebar nav{
+
+    display:flex;
+
+    flex-direction:column;
+
+    margin-top:20px;
+
+}
+
+.sidebar nav a{
+
+    color:var(--text);
+
+    text-decoration:none;
+
+    padding:16px 25px;
+
+    transition:.25s;
+
+}
+
+.sidebar nav a i{
+
+    width:28px;
+
+}
+
+.sidebar nav a:hover{
+
+    background:var(--primary);
+
+}
+
+.content{
+
+    margin-left:250px;
+
+    min-height:100vh;
+
+}
+
+.topbar{
+
+    height:70px;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:0 30px;
+
+    border-bottom:1px solid var(--border);
+
+}
+
+.status{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+}
+
+.online{
+
+    width:12px;
+
+    height:12px;
+
+    border-radius:50%;
+
+    background:var(--success);
+
+}
+
+.footer{
+
+    height:60px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    gap:10px;
+
+    color:var(--text2);
+
+    border-top:1px solid var(--border);
+
+}
+
+.card{
+
+    background:var(--card);
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius);
+
+    padding:25px;
+
+    box-shadow:var(--shadow);
+
+}
+
+.card h2{
+
+    margin-bottom:20px;
+
+}
+
+.senha-big{
+
+    font-size:90px;
+
+    font-weight:bold;
+
+    color:var(--secondary);
+
+    text-align:center;
+
+    margin-top:20px;
+
+}
+
+.guiche-big{
+
+    text-align:center;
+
+    font-size:28px;
+
+    color:var(--text2);
+
+    margin-top:15px;
+
+}
+
+#fila{
+
+    list-style:none;
+
+}
+
+#fila li{
+
+    padding:12px;
+
+    border-bottom:1px solid var(--border);
+
+    font-size:22px;
+
+}
+
+select{
+
+    width:100%;
+
+    padding:12px;
+
+    border-radius:8px;
+
+    border:1px solid var(--border);
+
+    background:#0f2136;
+
+    color:white;
+
+    margin-top:10px;
+
+}
+
+button{
+
+    flex:1;
+
+    padding:16px;
+
+    border:none;
+
+    border-radius:8px;
+
+    background:var(--primary);
+
+    color:white;
+
+    font-size:17px;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+}
+
+button:hover{
+
+    background:var(--secondary);
+
+}
+
+.grid-dashboard{
+
+    display:grid;
+
+    grid-template-columns:repeat(4,1fr);
+
+    gap:20px;
+
+}
+
+.stat-card{
+
+    text-align:center;
+
+}
+
+.stat-card h3{
+
+    color:var(--text2);
+
+    margin-bottom:20px;
+
+}
+
+.stat-number{
+
+    font-size:48px;
+
+    font-weight:bold;
+
+    color:var(--secondary);
+
+}
+
+.status-table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.status-table td{
+
+    padding:15px;
+
+    border-bottom:1px solid var(--border);
+
+}
+
+.badge{
+
+    padding:6px 12px;
+
+    border-radius:20px;
+
+    font-size:12px;
+
+    font-weight:bold;
+
+}
+
+.success{
+
+    background:#18C964;
+
+    color:#fff;
+
+}
+
+.warning{
+
+    background:#FFC107;
+
+    color:#000;
+
+}
+
+/* =======================================================
+   BT Queue Enterprise - Operador
+======================================================= */
+
+.bt-main{
+
+    padding:30px;
+
+}
+
+.bt-grid{
+
+    display:grid;
+
+    grid-template-columns:2fr 1fr;
+
+    gap:25px;
+
+    margin-bottom:25px;
+
+}
+
+.bt-card{
+
+    background:#132238;
+
+    border-radius:12px;
+
+    padding:25px;
+
+    box-shadow:0 6px 18px rgba(0,0,0,.20);
+
+}
+
+.bt-card h2{
+
+    margin-bottom:20px;
+
+    font-size:22px;
+
+}
+
+.bt-senha{
+
+    font-size:96px;
+
+    font-weight:bold;
+
+    color:#1DB4FF;
+
+    text-align:center;
+
+    margin:30px 0 10px;
+
+}
+
+.bt-guiche{
+
+    text-align:center;
+
+    font-size:28px;
+
+    color:#b9c6d8;
+
+}
+
+.bt-fila{
+
+    list-style:none;
+
+    padding:0;
+
+    margin:0;
+
+}
+
+.bt-fila li{
+
+    padding:14px;
+
+    border-bottom:1px solid rgba(255,255,255,.08);
+
+    font-size:22px;
+
+}
+
+.bt-toolbar{
+
+    margin-bottom:20px;
+
+}
+
+.bt-toolbar label{
+
+    display:block;
+
+    margin-bottom:8px;
+
+    font-weight:bold;
+
+}
+
+.bt-toolbar select{
+
+    width:220px;
+
+    padding:12px;
+
+    border-radius:8px;
+
+    border:none;
+
+    background:#0d1b2a;
+
+    color:#fff;
+
+}
+
+.bt-buttons{
+
+    display:flex;
+
+    gap:15px;
+
+    flex-wrap:wrap;
+
+}
+
+.bt-button{
+
+    padding:15px 25px;
+
+    border:none;
+
+    border-radius:8px;
+
+    color:#fff;
+
+    cursor:pointer;
+
+    font-size:17px;
+
+    font-weight:bold;
+
+    transition:.2s;
+
+}
+
+.bt-button:hover{
+
+    transform:translateY(-2px);
+
+}
+
+.bt-primary{
+
+    background:#1565C0;
+
+}
+
+.bt-success{
+
+    background:#18C964;
+
+}
+
+.bt-warning{
+
+    background:#f5a524;
+
+    color:#111;
+
+}
+
+
+/* =======================================================
+   BT Queue Enterprise - Toast
+======================================================= */
+
+.bt-toast{
+
+    position:fixed;
+
+    top:25px;
+    right:25px;
+
+    min-width:280px;
+
+    max-width:420px;
+
+    padding:16px 22px;
+
+    border-radius:10px;
+
+    color:#FFF;
+
+    font-weight:bold;
+
+    box-shadow:0 10px 30px rgba(0,0,0,.30);
+
+    opacity:0;
+
+    transform:translateY(-20px);
+
+    transition:.25s;
+
+    z-index:999999;
+
+}
+
+.bt-toast.mostrar{
+
+    opacity:1;
+
+    transform:translateY(0);
+
+}
+
+.bt-toast.sucesso{
+
+    background:#18C964;
+
+}
+
+.bt-toast.erro{
+
+    background:#E5484D;
+
+}
+
+.bt-toast.aviso{
+
+    background:#F5A524;
+
+    color:#111;
+
+}
+
+.bt-toast.info{
+
+    background:#1565C0;
+
+}
+
+/* ==========================================================
+   BT Queue - Formulários
+   ========================================================== */
+
+.form-group{
+    margin-bottom:16px;
+}
+
+.form-group label{
+    display:block;
+    margin-bottom:6px;
+    font-weight:600;
+    color:#fff;
+}
+
+.form-control{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid #3b516d;
+    border-radius:6px;
+    background:#1c2b3d;
+    color:#fff;
+    font-size:14px;
+    box-sizing:border-box;
+}
+
+.form-control:focus{
+    outline:none;
+    border-color:#2fa4ff;
+    box-shadow:0 0 0 2px rgba(47,164,255,.25);
+}

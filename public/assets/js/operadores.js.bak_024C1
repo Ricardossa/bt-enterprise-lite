@@ -1,0 +1,394 @@
+/*
+==========================================================
+BT Queue Enterprise
+Módulo: Operadores
+Arquivo: operadores.js
+==========================================================
+*/
+
+window.BT = window.BT || {};
+
+BT.operadores = {
+
+    apiEndpoint: '/painel_v4/api/operadores.php',
+
+    init() {
+
+        this.carregar();
+        this.registrarEventos();
+
+    },
+
+    registrarEventos() {
+
+        const btn = document.getElementById('btnNovo');
+
+        if(btn){
+
+            btn.removeEventListener('click', this.novo);
+
+            btn.addEventListener('click', ()=>{
+
+                this.novo();
+
+            });
+
+        }
+
+    },
+
+    async carregar(){
+
+        const tbody=document.getElementById('listaOperadores');
+
+        if(!tbody) return;
+
+        try{
+
+            const resposta=await fetch(this.apiEndpoint);
+
+            const json=await resposta.json();
+
+            if(!json.success){
+
+                BT.toast.erro(json.message);
+
+                return;
+
+            }
+
+            this.renderizar(json.data);
+
+        }catch(e){
+
+            console.error(e);
+
+        }
+
+    },
+
+    renderizar(lista){
+
+        const tbody=document.getElementById('listaOperadores');
+
+        if(lista.length===0){
+
+            tbody.innerHTML=`
+            <tr>
+                <td colspan="6"
+                    class="text-center">
+
+                    Nenhum operador cadastrado.
+
+                </td>
+            </tr>`;
+
+            return;
+
+        }
+
+        tbody.innerHTML=lista.map(op=>`
+
+        <tr>
+
+            <td>${op.nome}</td>
+
+            <td>${op.login}</td>
+
+            <td>${op.servico ?? '-'}</td>
+
+            <td>${op.guiche ?? '-'}</td>
+
+            <td>
+
+                ${op.ativo==1
+                    ?'<span class="badge bg-success">Ativo</span>'
+                    :'<span class="badge bg-danger">Inativo</span>'}
+
+            </td>
+
+            <td>
+
+                <button
+                    class="btn btn-sm btn-info"
+                    onclick="BT.operadores.editar(${op.id})">
+
+                    ✏️
+
+                </button>
+
+                <button
+                    class="btn btn-sm btn-danger"
+                    onclick="BT.operadores.excluir(${op.id})">
+
+                    🗑️
+
+                </button>
+
+            </td>
+
+        </tr>
+
+        `).join('');
+
+    },    novo(){
+
+        const html=this.formulario();
+
+        BT.modal.abrir(
+
+            '👤 Novo Operador',
+
+            html,
+
+            ()=>this.salvar('POST')
+
+        );
+
+    },
+
+    async editar(id){
+
+        try{
+
+            const resposta=await fetch(
+
+                `${this.apiEndpoint}?id=${id}`
+
+            );
+
+            const json=await resposta.json();
+
+            if(!json.success){
+
+                BT.toast.erro(json.message);
+
+                return;
+
+            }
+
+            BT.modal.abrir(
+
+                '✏️ Editar Operador',
+
+                this.formulario(json.data),
+
+                ()=>this.salvar('PUT')
+
+            );
+
+        }catch(e){
+
+            console.error(e);
+
+        }
+
+    },
+
+    async salvar(metodo){
+
+        const dados={
+
+            id:document.getElementById('op_id')?.value||'',
+
+            nome:document.getElementById('op_nome').value.trim(),
+
+            login:document.getElementById('op_login').value.trim(),
+
+            senha:document.getElementById('op_senha').value,
+
+            servico_id:document.getElementById('op_servico').value,
+
+            guiche_id:document.getElementById('op_guiche').value,
+
+            ativo:document.getElementById('op_ativo').checked?1:0
+
+        };
+
+        try{
+
+            const resposta=await fetch(this.apiEndpoint,{
+
+                method:metodo,
+
+                headers:{
+
+                    'Content-Type':'application/json'
+
+                },
+
+                body:JSON.stringify(dados)
+
+            });
+
+            const json=await resposta.json();
+
+            if(json.success){
+
+                BT.modal.fechar();
+
+                BT.toast.sucesso('Operador salvo com sucesso.');
+
+                this.carregar();
+
+            }else{
+
+                BT.toast.erro(json.message);
+
+            }
+
+        }catch(e){
+
+            console.error(e);
+
+        }
+
+    },
+
+    async excluir(id){
+
+        if(!confirm('Excluir este operador?')){
+
+            return;
+
+        }
+
+        try{
+
+            const resposta=await fetch(this.apiEndpoint,{
+
+                method:'DELETE',
+
+                headers:{
+
+                    'Content-Type':'application/json'
+
+                },
+
+                body:JSON.stringify({
+
+                    id:id
+
+                })
+
+            });
+
+            const json=await resposta.json();
+
+            if(json.success){
+
+                BT.toast.sucesso('Operador excluído.');
+
+                this.carregar();
+
+            }else{
+
+                BT.toast.erro(json.message);
+
+            }
+
+        }catch(e){
+
+            console.error(e);
+
+        }
+
+    },    formulario(dados={}){
+
+        return `
+
+        <form id="formOperador">
+
+            <input
+                type="hidden"
+                id="op_id"
+                value="${dados.id||''}">
+
+            <div class="form-group">
+
+                <label>Nome</label>
+
+                <input
+                    id="op_nome"
+                    class="form-control"
+                    value="${dados.nome||''}"
+                    required>
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Login</label>
+
+                <input
+                    id="op_login"
+                    class="form-control"
+                    value="${dados.login||''}"
+                    required>
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Senha</label>
+
+                <input
+                    id="op_senha"
+                    type="password"
+                    class="form-control"
+                    placeholder="${dados.id?'Deixe em branco para manter':'Informe a senha'}">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Serviço (ID)</label>
+
+                <input
+                    id="op_servico"
+                    type="number"
+                    class="form-control"
+                    value="${dados.servico_id||''}">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Guichê (ID)</label>
+
+                <input
+                    id="op_guiche"
+                    type="number"
+                    class="form-control"
+                    value="${dados.guiche_id||''}">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>
+
+                    <input
+                        id="op_ativo"
+                        type="checkbox"
+                        ${(dados.ativo==0)?'':'checked'}>
+
+                    Ativo
+
+                </label>
+
+            </div>
+
+        </form>
+
+        `;
+
+    }
+
+};
+
+document.addEventListener('DOMContentLoaded',()=>{
+
+    BT.operadores.init();
+
+});

@@ -1,0 +1,140 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/components/brand.php';
+
+$pageTitle = $pageTitle ?? $empresa;
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title><?= htmlspecialchars($pageTitle) ?></title>
+
+<link rel="stylesheet" href="/painel_v4/public/assets/css/theme.css">
+<link rel="stylesheet" href="/painel_v4/public/assets/css/layout.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+</head>
+
+<body>
+
+<div class="sidebar">
+
+<div class="logo">
+
+<?php if ($logoExiste): ?>
+
+<img
+id="empresaLogo"
+src="<?= $logoUrl ?>"
+alt="<?= htmlspecialchars($empresa) ?>"
+style="
+width:60px;
+height:60px;
+object-fit:contain;
+flex-shrink:0;
+">
+
+<?php else: ?>
+
+<div class="logo-icon">
+BT
+</div>
+
+<?php endif; ?>
+
+<div class="logo-text">
+
+<h2 id="empresaNome">
+<?= htmlspecialchars($empresa) ?>
+</h2>
+
+<span>Enterprise</span>
+
+</div>
+
+</div>
+
+<nav>
+
+<a href="dashboard.php">
+<i class="fa-solid fa-chart-line"></i>
+Dashboard
+</a>
+
+<a href="operador.php">
+<i class="fa-solid fa-headset"></i>
+Operador
+</a>
+
+<a href="tv.php">
+<i class="fa-solid fa-tv"></i>
+TV
+</a>
+
+<a href="totem.php">
+<i class="fa-solid fa-tablet-screen-button"></i>
+Totem
+</a>
+
+<hr style="margin:15px 0;opacity:.2;">
+
+<a href="/painel_v4/live/">
+    <i class="fa-solid fa-mobile-screen-button"></i>
+    BT Queue Live
+</a>
+
+<a href="conectividade.php">
+    <i class="fa-solid fa-globe"></i>
+    Conectividade
+</a>
+
+<a href="configuracoes.php">
+<i class="fa-solid fa-gear"></i>
+Configurações
+</a>
+
+<a href="guiches.php">
+<i class="fa-solid fa-users-gear"></i>
+Guichês
+</a>
+
+<a href="servicos.php">
+<i class="fa-solid fa-briefcase"></i>
+Serviços
+</a>
+
+</nav>
+
+</div>
+
+<div class="content">
+
+<header class="topbar">
+
+<h1>
+<?= htmlspecialchars($pageTitle) ?>
+</h1>
+
+<div class="status">
+
+<span class="online"></span>
+
+Online
+
+</div>
+
+</header>
+
+<!-- O conteúdo da página vai aqui -->
+
+</body>
+
+</html>

@@ -1,0 +1,216 @@
+BT.guiches = {
+
+    async carregar() {
+
+        const resposta = await fetch("/painel_v4/api/guiches.php");
+
+        const json = await resposta.json();
+
+        const tbody = document.getElementById("listaGuiches");
+
+        tbody.innerHTML = "";
+
+        json.data.forEach(g => {
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${g.codigo}</td>
+                    <td>${g.icone} ${g.nome}</td>
+                    <td>
+                        <button class="bt-button bt-warning" onclick="BT.guiches.editar(${g.id})">
+                            ✏ Editar
+                        </button>
+
+                        <button class="bt-button bt-danger" onclick="BT.guiches.excluir(${g.id})">
+                            🗑 Excluir
+                        </button>
+                    </td>
+                </tr>
+            `;
+
+        });
+
+    },
+
+    novo() {
+
+        BT.modal.abrir(
+
+            "Novo Guichê",
+
+            `
+                <label>Código</label>
+                <input id="novoCodigo" class="bt-input">
+
+                <br><br>
+
+                <label>Nome</label>
+                <input id="novoNome" class="bt-input">
+            `,
+
+            async () => {
+
+                const codigo = document.getElementById("novoCodigo").value.trim();
+
+                const nome = document.getElementById("novoNome").value.trim();
+
+                const resposta = await fetch("/painel_v4/api/guiches.php",{
+
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":"application/json"
+                    },
+
+                    body:JSON.stringify({
+
+                        codigo,
+                        nome
+
+                    })
+
+                });
+
+                const json = await resposta.json();
+
+                if(json.success){
+
+                    BT.modal.fechar();
+
+                    BT.guiches.carregar();
+
+                }else{
+
+                    alert(json.message || "Erro ao salvar.");
+
+                }
+
+            }
+
+        );
+
+    },
+
+    editar(id){
+
+        const resposta = document.querySelector("#listaGuiches");
+
+        fetch("/painel_v4/api/guiches.php")
+        .then(r => r.json())
+        .then(json => {
+
+            const guiche = json.data.find(g => g.id == id);
+
+            if(!guiche){
+                alert("Guichê não encontrado.");
+                return;
+            }
+
+            BT.modal.abrir(
+
+                "Editar Guichê",
+
+                `
+                    <label>Código</label>
+                    <input id="novoCodigo" class="bt-input" value="${guiche.codigo}">
+
+                    <br><br>
+
+                    <label>Nome</label>
+                    <input id="novoNome" class="bt-input" value="${guiche.nome}">
+                `,
+
+                async ()=>{
+
+                    const codigo=document.getElementById("novoCodigo").value.trim();
+                    const nome=document.getElementById("novoNome").value.trim();
+
+                    const resp=await fetch("/painel_v4/api/guiches.php",{
+
+                        method:"PUT",
+
+                        headers:{
+                            "Content-Type":"application/json"
+                        },
+
+                        body:JSON.stringify({
+
+                            id:guiche.id,
+                            codigo,
+                            nome,
+                            icone:guiche.icone,
+                            cor:guiche.cor
+
+                        })
+
+                    });
+
+                    const jsonResp=await resp.json();
+
+                    if(jsonResp.success){
+
+                        BT.modal.fechar();
+
+                        BT.guiches.carregar();
+
+                    }else{
+
+                        BT.toast.erro(jsonResp.message || "Erro ao editar.");
+
+                    }
+
+                }
+
+            );
+
+        });
+
+    },
+
+    async excluir(id){
+
+        if(!confirm("Deseja realmente excluir este guichê?")){
+            return;
+        }
+
+        const resp = await fetch("/painel_v4/api/guiches.php",{
+
+            method:"DELETE",
+
+            headers:{
+                "Content-Type":"application/json"
+            },
+
+            body:JSON.stringify({
+                id:id
+            })
+
+        });
+
+        const json = await resp.json();
+
+        if(json.success){
+
+            BT.guiches.carregar();
+
+        }else{
+
+            alert(json.message || "Erro ao excluir.");
+
+        }
+
+    }
+
+};
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+    BT.guiches.carregar();
+
+    document.getElementById("btnNovo").onclick=()=>{
+
+        BT.guiches.novo();
+
+    };
+
+});

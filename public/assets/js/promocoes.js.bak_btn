@@ -1,0 +1,272 @@
+window.BT = window.BT || {};
+
+BT.promocoes = {
+
+    api: "/painel_v4/api/promocoes.php",
+
+    async carregar() {
+
+        const tbody = document.getElementById("listaPromocoes");
+
+        tbody.innerHTML = "<tr><td colspan='3'>Carregando...</td></tr>";
+
+        try {
+
+            const resp = await fetch(this.api);
+
+            const json = await resp.json();
+
+            if (!json.success) {
+
+                tbody.innerHTML =
+                    "<tr><td colspan='3'>Erro ao carregar.</td></tr>";
+
+                return;
+            }
+
+            tbody.innerHTML = "";
+
+            json.data.forEach(item => {
+
+                tbody.innerHTML += `
+<tr>
+<td>${item.ordem}</td>
+<td>${item.titulo}</td>
+<td>
+<button onclick="BT.promocoes.editar(${item.id})">
+ ^|^o  ^o
+</button>
+
+<button onclick="BT.promocoes.excluir(${item.id})">
+ ^=^w^q  ^o
+</button>
+</td>
+</tr>
+`;
+
+            });
+
+        } catch (e) {
+
+            tbody.innerHTML =
+                "<tr><td colspan='3'>Falha de conex  o.</td></tr>";
+
+        }
+
+    },
+
+    novo() {
+
+        BT.modal.abrir(
+
+            "Nova Promoção",
+
+            `
+            <label>Título</label>
+            <input id="titulo" class="form-control">
+
+            <br>
+
+            <label>Descrição</label>
+            <input id="descricao" class="form-control">
+
+            <br>
+
+            <label>Imagem</label>
+            <input id="imagem" class="form-control">
+
+            <br>
+
+            <label>Ordem</label>
+            <input
+                id="ordem"
+                type="number"
+                value="0"
+                class="form-control">
+            `,
+
+            async () => {
+
+                const resp = await fetch(this.api, {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        titulo: document.getElementById("titulo").value,
+
+                        descricao: document.getElementById("descricao").value,
+
+                        imagem: document.getElementById("imagem").value,
+
+                        ordem: parseInt(
+                            document.getElementById("ordem").value
+                        ) || 0
+
+                    })
+
+                });
+
+                const json = await resp.json();
+
+                if (json.success) {
+
+                    BT.modal.fechar();
+
+                    this.carregar();
+
+                } else {
+
+                    alert(json.message);
+
+                }
+
+            }
+
+        );
+
+    },
+
+    async editar(id) {
+
+        const resp = await fetch(this.api + "?id=" + id);
+
+        const json = await resp.json();
+
+        if (!json.success) {
+
+            alert("Promoção não encontrada.");
+
+            return;
+
+        }
+
+        const p = json.data;
+
+        BT.modal.abrir(
+
+            "Editar Promoção",
+
+            `
+            <label>Título</label>
+            <input id="titulo" class="form-control" value="${p.titulo}">
+
+            <br>
+
+            <label>Descrição</label>
+            <input id="descricao" class="form-control" value="${p.descricao}">
+
+            <br>
+
+            <label>Imagem</label>
+            <input id="imagem" class="form-control" value="${p.imagem}">
+
+            <br>
+
+            <label>Ordem</label>
+            <input
+                id="ordem"
+                type="number"
+                class="form-control"
+                value="${p.ordem}">
+            `,
+
+            async () => {
+
+                const salvar = await fetch(this.api, {
+
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        id: id,
+
+                        titulo: document.getElementById("titulo").value,
+
+                        descricao: document.getElementById("descricao").value,
+
+                        imagem: document.getElementById("imagem").value,
+
+                        ordem: parseInt(
+                            document.getElementById("ordem").value
+                        ) || 0
+
+                    })
+
+                });
+
+                const retorno = await salvar.json();
+
+                if (retorno.success) {
+
+                    BT.modal.fechar();
+
+                    this.carregar();
+
+                } else {
+
+                    alert(retorno.message);
+
+                }
+
+            }
+
+        );
+
+    },
+
+    async excluir(id) {
+
+        if (!confirm("Excluir esta promo    o?"))
+            return;
+
+        const resp = await fetch(this.api, {
+
+            method: "DELETE",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                id
+            })
+        });
+
+        const json = await resp.json();
+
+        if (json.success) {
+
+            this.carregar();
+
+        } else {
+
+            alert(json.message);
+
+        }
+
+    }
+
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    BT.promocoes.carregar();
+
+    document
+        .getElementById("btnNovo")
+        .addEventListener("click", () => {
+
+            BT.promocoes.novo();
+
+        });
+
+});

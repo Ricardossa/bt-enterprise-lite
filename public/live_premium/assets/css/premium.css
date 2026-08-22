@@ -1,0 +1,274 @@
+/* ============================================================
+   BT QUEUE LIVE PREMIUM - UNIFIED VISUAL LANGUAGE (V5-COMPACT)
+   Pattern: Premium NOC Style | Squeezed for One-Screen Mobile
+   ============================================================ */
+
+:root {
+    --bg: #081421;
+    --card: #132238;
+    --sidebar: #0D1B2A;
+    --primary: #1565C0;
+    --secondary: #1DB4FF;
+    --success: #18C964;
+    --warning: #FFC107;
+    --text: #FFFFFF;
+    --text2: #B8C7D9;
+    --border: #1E3552;
+    --radius-premium: 30px;
+    --promo-red: #C62828;
+    --shadow-premium: 0 15px 45px rgba(0,0,0,0.5);
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.live-container {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* HEADER PREMIUM ULTRA-SLIM */
+.header-premium {
+    background: linear-gradient(135deg, #0019FF 0%, #0012CC 100%);
+    padding: 12px 10px; /* Reduzido ao mÃ­nimo */
+    border-radius: 0 0 25px 25px;
+    text-align: center;
+    color: #fff;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    margin-bottom: 5px;
+    flex-shrink: 0;
+}
+
+.header-premium i { font-size: 20px; margin-bottom: 3px; display: block; }
+.header-premium h1 { font-size: 18px; margin: 0; font-weight: 900; text-transform: uppercase; }
+.header-premium p { font-size: 11px; opacity: 0.8; margin: 0; }
+
+/* CONTEÃšDO PRINCIPAL (Compactado) */
+main {
+    flex: 1;
+    padding: 5px 12px; /* Reduzido de 20px */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 10px; /* Reduzido de 25px */
+}
+
+/* MASTER CARD (Squeezed Padding) */
+.premium-card {
+    background: var(--card);
+    border-radius: var(--radius-premium);
+    padding: 15px; /* Reduzido de 40px para economizar tela */
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-premium);
+    text-align: center;
+    width: 100%;
+}
+
+.premium-card-title {
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: var(--secondary);
+    text-transform: uppercase;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+/* CARD DE SENHA BRANCO (Compacto) */
+.ticket-white-box {
+    background: #FFFFFF;
+    border-radius: 25px;
+    padding: 15px 10px; /* Reduzido drasticamente */
+    color: #333;
+    margin-bottom: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.ticket-number {
+    font-size: 76px; /* Reduzido de 96px */
+    font-weight: 900;
+    color: #0019FF;
+    line-height: 1;
+    margin: 0;
+    letter-spacing: -3px;
+}
+
+.badge-status {
+    background: #FFF9E6;
+    color: #856404;
+    padding: 6px 15px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.dot-status { width: 10px; height: 10px; border-radius: 50%; background: var(--success); }
+
+.grid-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.stat-item {
+    background: #F1F5F9;
+    padding: 8px 2px;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
+}
+
+.stat-item label { font-size: 8px; color: #64748B; text-transform: uppercase; font-weight: 800; display: block; margin-bottom: 2px; }
+.stat-item b { font-size: 14px; color: #0F172A; }
+
+/* BOTÃ•ES DE SERVIÃ‡O (TILES COMPACTOS) */
+.btn-premium-service {
+    width: 100%;
+    min-height: 90px; /* Reduzido para caber mais botÃµes */
+    padding: 15px;
+    border-radius: 20px;
+    border: 2px solid var(--border);
+    background: var(--sidebar);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+}
+
+.btn-premium-service span {
+    font-size: 30px;
+    width: 50px; height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+}
+
+.btn-premium-service:active { transform: scale(0.96); background: var(--primary); }
+
+.hidden { display: none !important; }
+
+/* EFEITO DE CLIQUE DIAMOND */
+.btn-premium-service:active {
+    transform: scale(0.95);
+    background: var(--primary) !important;
+    border-color: var(--secondary) !important;
+}
+
+/* ÃREA DE PROMOÃ‡Ã•ES (SLIM HERO) */
+.promo-premium-container {
+    width: 100%;
+    border-radius: 25px;
+    overflow: hidden;
+    background: #fff;
+    margin-top: 5px;
+}
+
+.promo-client-logo-box { padding: 10px; background: #fff; border-bottom: 2px solid var(--promo-red); }
+.promo-client-logo-box img { width: 100%; max-height: 70px; object-fit: contain; }
+
+.promo-item-row {
+    padding: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    color: #333;
+    text-align: left;
+    min-height: 100px;
+}
+
+.promo-item-img {
+    width: 80px; height: 80px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: #f8f9fa;
+    padding: 5px;
+}
+
+.promo-item-info h4 { margin: 0; font-size: 14px; font-weight: 800; color: #0F172A; }
+.promo-item-price { color: var(--success); font-size: 18px; font-weight: 900; margin: 2px 0; }
+.promo-item-desc { font-size: 11px; color: #64748B; line-height: 1.2; margin: 0; }
+
+.promo-banner-red { background: var(--promo-red); color: #fff; padding: 6px; font-weight: 900; font-size: 10px; text-align: center; }
+
+/* FOOTER BRANDÃƒOTECH FIXO NA BASE */
+.footer-signature {
+    text-align: center;
+    padding: 10px 15px;
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+.footer-signature p { font-size: 8px; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+.footer-signature img { height: 18px; opacity: 0.8; }
+
+/* OVERLAY CHAMANDO (RECALIBRADO PARA CARD) */
+.call-overlay-premium {
+    display: none !important; /* Desativado globalmente */
+}
+
+/* ESTADO DE CHAMADA NO CARD */
+.premium-card.calling-mode {
+    border-color: var(--success);
+    background: linear-gradient(135deg, var(--success) 0%, var(--bg) 100%);
+    position: relative;
+    z-index: 10;
+    animation: pulse-calling 2s infinite;
+}
+
+.premium-card.calling-mode .ticket-white-box {
+    background: rgba(255, 255, 255, 0.95);
+    border: 3px solid var(--success);
+}
+
+.premium-card.calling-mode .ticket-number {
+    color: var(--bg);
+}
+
+.premium-card.calling-mode .serv-info {
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+@keyframes pulse-calling {
+    0% { transform: scale(1); box-shadow: 0 0 0px var(--success); }
+    50% { transform: scale(1.02); box-shadow: 0 0 30px var(--success); }
+    100% { transform: scale(1); box-shadow: 0 0 0px var(--success); }
+}
+
+/* Botão de desbloqueio de áudio */
+.audio-unlock-bar {
+    background: var(--warning);
+    color: #000;
+    text-align: center;
+    padding: 10px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
