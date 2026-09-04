@@ -17,8 +17,9 @@ final class AIService
 
     public function __construct()
     {
-        // Busca a URL da IA configurada no banco (v6.7.1 dynamic)
-        $config = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'ai_url' LIMIT 1");
+        // [LITE v4.1.0] Blindagem SaaS: Busca URL da IA específica da Unidade
+        $tenantId = Auth::tenantId();
+        $config = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'ai_url' AND tenant_id = ? LIMIT 1", [$tenantId]);
         $this->ollamaUrl = $config ? $config['valor'] : 'http://192.168.100.250:11434/api/generate';
     }
 

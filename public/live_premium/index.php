@@ -26,9 +26,9 @@ $estaFechado = ($agora < $abertura || $agora > $fechamento);
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover, maximum-scale=1">
     <title>Retirar Senha - <?= htmlspecialchars($empresa) ?></title>
-    <link rel="stylesheet" href="assets/css/premium.css">
+    <link rel="stylesheet" href="assets/css/premium.css?v=1.2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 </head>
@@ -37,10 +37,13 @@ $estaFechado = ($agora < $abertura || $agora > $fechamento);
 <div class="live-container">
     <header class="header-premium">
         <?php
-            $logoUrl = null;
-            if (isset($config['promo_logo']) && !empty($config['promo_logo'])) {
-                $filename = basename($config['promo_logo']);
-                $logoUrl = $baseUrl . 'uploads/' . $filename;
+            // [v1.8.6] Logo DinÃ¢mica SaaS
+            $logoUrl = $config['logo_url'] ?? $config['promo_logo'] ?? '';
+            if (empty($logoUrl) || (!str_starts_with($logoUrl, 'http') && !file_exists(__DIR__ . '/../' . $logoUrl))) {
+                $logoUrl = 'https://api.brandaotech.com.br/uploads/logo/logo.png';
+            } else {
+                $logoUrl = '../' . ltrim($logoUrl, '/');
+                $logoUrl .= '?v=' . time(); // Anti-cache
             }
         ?>
 
@@ -123,11 +126,12 @@ $estaFechado = ($agora < $abertura || $agora > $fechamento);
 
     <footer class="footer-signature">
         <p>Desenvolvido por</p>
-        <img src="http://api.brandaotech.com.br:8080/uploads/logo/logo.png" alt="Brandão Tech">
+        <img src="https://api.brandaotech.com.br/uploads/logo/logo.png" alt="Brandão Tech">
     </footer>
 </div>
 
-<script src="../assets/js/api.js?v=7.5.3"></script>
-<script src="assets/js/emitter.js?v=7.5.3"></script>
+<script src="../assets/js/api.js?v=7.8.8"></script>
+<script src="assets/js/emitter.js?v=7.8.8"></script>
+
 </body>
 </html>

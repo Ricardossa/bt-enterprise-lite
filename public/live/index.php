@@ -121,7 +121,7 @@ $promo_logo = $config['promo_logo'] ?? '../uploads/logo.png';
     <!-- FOOTER BRANDÃƒOTECH -->
     <footer class="bt-footer">
         <p>TECNOLOGIA POR</p>
-        <img src="http://api.brandaotech.com.br:8080/uploads/logo/logo.png" alt="BrandÃ£o Tech">
+        <img src="https://api.brandaotech.com.br/uploads/logo/logo.png" alt="Brandão Tech">
         <p style="font-size:9px; margin-top:10px; opacity:0.6;">Tecnologias que conectam, soluçães que transformam.</p>
     </footer>
 

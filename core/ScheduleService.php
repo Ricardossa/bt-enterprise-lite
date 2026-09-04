@@ -78,6 +78,13 @@ final class ScheduleService
             return date('H:i', strtotime($item['data_agendamento']));
         }, $ocupadosRaw);
 
+        // [v2.9.0] Busca Bloqueios Específicos (Compromissos)
+        $bloqueios = Database::fetchAll(
+            "SELECT hora_inicio, hora_fim FROM agenda_bloqueios
+             WHERE tenant_id = ? AND data = ? AND (operador_id = ? OR operador_id = 0)",
+            [$tenantId, $data, $operadorId]
+        );
+
         // 3. Gera a grade de horários
         $slots = [];
         $atual = strtotime("$data $inicio");
@@ -88,6 +95,9 @@ final class ScheduleService
         $dbNowTs = (int)$dbNowRaw['ts'];
         $dbHoje = date('Y-m-d', $dbNowTs);
 
+        $pausaIni = $regra['pausa_inicio'] ? strtotime("$data {$regra['pausa_inicio']}") : null;
+        $pausaFim = $regra['pausa_fim'] ? strtotime("$data {$regra['pausa_fim']}") : null;
+
         while ($atual < $limite) {
             $horaFormatada = date('H:i', $atual);
 
@@ -95,8 +105,25 @@ final class ScheduleService
             $minLeadTime = 1800; // 30 minutos em segundos
             $isMuitoPerto = ($dbHoje === $data && ($atual - $dbNowTs) < $minLeadTime);
 
-            // Só adiciona se não estiver ocupado e respeitar a antecedência
-            if (!in_array($horaFormatada, $ocupados) && !$isMuitoPerto) {
+            // [v2.9.0] Verifica se está dentro da PAUSA RECORRENTE (Almoço)
+            $estaEmPausa = false;
+            if ($pausaIni && $pausaFim && $atual >= $pausaIni && $atual < $pausaFim) {
+                $estaEmPausa = true;
+            }
+
+            // [v2.9.0] Verifica se está dentro de um BLOQUEIO ESPECÍFICO
+            $estaBloqueado = false;
+            foreach ($bloqueios as $b) {
+                $bIni = strtotime("$data {$b['hora_inicio']}");
+                $bFim = strtotime("$data {$b['hora_fim']}");
+                if ($atual >= $bIni && $atual < $bFim) {
+                    $estaBloqueado = true;
+                    break;
+                }
+            }
+
+            // Só adiciona se não estiver ocupado, não for muito perto, não estiver em pausa e não estiver bloqueado
+            if (!in_array($horaFormatada, $ocupados) && !$isMuitoPerto && !$estaEmPausa && !$estaBloqueado) {
                 $slots[] = $horaFormatada;
             }
 
@@ -137,13 +164,45 @@ final class ScheduleService
             // [LITE v3.5.1] REGRA DE DUPLICIDADE DESATIVADA POR SOLICITAÇÃO
             // Permitindo múltiplos agendamentos no mesmo dia para o mesmo cliente.
 
-            // [LITE v2.6.4] VALOR TOTAL
+            // [LITE v2.6.4] VALOR TOTAL & INTELIGÊNCIA VIP (v4.5)
             $valorTotal = 0; $nomesServicos = [];
+
+            // Busca Assinatura Ativa do Cliente
+            $assinatura = null;
+            if ($clienteId > 0) {
+                $assinatura = Database::fetch("
+                    SELECT a.*, p.servico_vinculado_id
+                    FROM clube_assinaturas a
+                    JOIN clube_planos p ON p.id = a.plano_id
+                    WHERE a.cliente_id = ? AND a.tenant_id = ? AND a.status = 'ATIVA'
+                    AND a.data_fim >= CURDATE() AND a.cortes_restantes > 0
+                    ORDER BY a.id DESC LIMIT 1
+                ", [$clienteId, $tenantId]);
+            }
+
+            $usouCombo = false;
+            $isPromo = false;
             if (!empty($servicoIds)) {
-                $placeholders = implode(',', array_fill(0, count($servicoIds), '?'));
-                $params = array_merge($servicoIds, [$tenantId]);
-                $servicosInfo = Database::fetchAll("SELECT nome, preco FROM servicos WHERE id IN ($placeholders) AND tenant_id = ?", $params);
-                foreach ($servicosInfo as $si) { $valorTotal += (float)$si['preco']; $nomesServicos[] = $si['nome']; }
+                foreach ($servicoIds as $sid) {
+                    $calc = ServicoService::getPrecoVigente((int)$sid, $tenantId, $hojeData);
+                    $precoServico = $calc['preco'];
+
+                    if ($calc['is_promo']) $isPromo = true;
+
+                    // Busca informaÃ§Ãµes do nome para o descritivo
+                    $sInfo = Database::fetch("SELECT nome FROM servicos WHERE id = ? AND tenant_id = ?", [(int)$sid, $tenantId]);
+                    $nomeBase = $sInfo['nome'] ?? 'Serviço';
+
+                    // Se o cliente tem combo e o serviço está vinculado ao plano dele
+                    if ($assinatura && (int)$sid === (int)$assinatura['servico_vinculado_id'] && !$usouCombo) {
+                        $precoServico = 0; // Não cobra este serviço (CORTESIA VIP)
+                        $usouCombo = true;
+                        $nomesServicos[] = $nomeBase . " (VIP)";
+                    } else {
+                        $valorTotal += $precoServico;
+                        $nomesServicos[] = ($calc['is_promo'] ? $nomeBase . " (PROMO)" : $nomeBase);
+                    }
+                }
             }
             $servicosDesc = implode(' + ', $nomesServicos);
 
@@ -156,12 +215,17 @@ final class ScheduleService
                 "INSERT INTO senhas (
                     tenant_id, uuid, cliente_uuid, cliente_id, codigo, numero, prefixo,
                     nome_cliente, status, data_agendamento, servico_id, created_at, emitida_em, whatsapp, cancel_token,
-                    pagamento_status, valor_total, servicos_desc, operador_id
-                ) VALUES (?, ?, ?, ?, ?, 0, 'G', ?, 'AGENDADO', ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)",
-                [$tenantId, $uuid, ($deviceId ?: $uuid), $clienteId, $primeiroNome, $nome, $dataHora, $principalServicoId, $dataHora, $whatsapp, $cancelToken, ($valorTotal > 0 ? 'PENDENTE' : 'ISENTO'), $valorTotal, $servicosDesc, $operadorId]
+                    pagamento_status, valor_total, is_promo, servicos_desc, operador_id, tipo_atendimento
+                ) VALUES (?, ?, ?, ?, ?, 0, 'G', ?, 'AGENDADO', ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, 'AGENDAMENTO')",
+                [$tenantId, $uuid, ($deviceId ?: $uuid), $clienteId, $primeiroNome, $nome, $dataHora, $principalServicoId, $dataHora, $whatsapp, $cancelToken, ($valorTotal > 0 ? 'PENDENTE' : 'ISENTO'), $valorTotal, ($isPromo ? 1 : 0), $servicosDesc, $operadorId]
             );
 
             $senhaId = Database::lastInsertId();
+
+            // [v4.5] Se usou o combo, debita 1 crédito da assinatura
+            if ($usouCombo && $assinatura) {
+                Database::execute("UPDATE clube_assinaturas SET cortes_restantes = cortes_restantes - 1 WHERE id = ?", [$assinatura['id']]);
+            }
 
             // GERAR PAGAMENTO
             $pixData = null;
@@ -219,9 +283,23 @@ final class ScheduleService
     public function cancelar(string $token): array
     {
         $tenantId = Auth::tenantId();
-        $agendado = Database::fetch("SELECT id FROM senhas WHERE cancel_token = ? AND tenant_id = ? AND status = 'AGENDADO' LIMIT 1", [$token, $tenantId]);
+
+        // [v2.9.2] Blindagem de Cancelamento: Só permite se ainda NÃO deu entrada (status AGENDADO apenas)
+        $agendado = Database::fetch("
+            SELECT id, status FROM senhas
+            WHERE cancel_token = ? AND tenant_id = ?
+            LIMIT 1", [$token, $tenantId]);
+
         if (!$agendado) return ['success' => false, 'message' => 'Agendamento não encontrado.'];
+
+        if ($agendado['status'] !== 'AGENDADO') {
+            return [
+                'success' => false,
+                'message' => '⚠️ Este agendamento não pode mais ser cancelado pois você já confirmou sua presença ou já foi chamado.'
+            ];
+        }
+
         Database::execute("UPDATE senhas SET status = 'CANCELADO', updated_at = NOW() WHERE id = ? AND tenant_id = ?", [$agendado['id'], $tenantId]);
-        return ['success' => true, 'message' => 'Agendamento cancelado.'];
+        return ['success' => true, 'message' => 'Agendamento cancelado com sucesso.'];
     }
 }

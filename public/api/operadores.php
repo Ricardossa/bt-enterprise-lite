@@ -20,6 +20,8 @@ if($metodo==='PUT'){
 
 if($metodo==='GET'){
 
+    $tenantId = Auth::tenantId();
+
     if(isset($_GET['id'])){
 
         $op=Database::fetch("
@@ -28,9 +30,9 @@ if($metodo==='GET'){
                 (SELECT nome FROM servicos WHERE id=operadores.servico_id) AS servico_nome,
                 (SELECT nome FROM guiches WHERE id=operadores.guiche_id) AS guiche_nome
             FROM operadores
-            WHERE id=?
+            WHERE id=? AND tenant_id=?
             LIMIT 1
-        ",[(int)$_GET['id']]);
+        ",[(int)$_GET['id'], $tenantId]);
 
         if($op){
             // [LITE v1.3.0] Busca lista de especialidades
@@ -68,6 +70,7 @@ if($metodo==='GET'){
             o.login,
             o.nivel,
             o.ativo,
+            o.status,
             o.servico_id,
             o.guiche_id,
             o.foto_url,
@@ -77,9 +80,9 @@ if($metodo==='GET'){
         FROM operadores o
         LEFT JOIN guiches g
             ON g.id=o.guiche_id
-        WHERE o.ativo=1
+        WHERE o.tenant_id=?
         ORDER BY o.nome
-    ");
+    ", [$tenantId]);
 
     echo json_encode([
         'success'=>true,
@@ -132,11 +135,13 @@ if($metodo==='POST'){
             "SELECT nome
              FROM operadores
              WHERE guiche_id = ?
+               AND tenant_id = ?
                AND ativo = 1
                AND id <> ?
              LIMIT 1",
             [
                 $guiche,
+                $tenantId,
                 $id
             ]
         );
@@ -152,9 +157,9 @@ if($metodo==='POST'){
 
     $existe=Database::fetch(
         "SELECT id FROM operadores
-         WHERE login=?
+         WHERE login=? AND tenant_id=?
          LIMIT 1",
-        [$login]
+        [$login, $tenantId]
     );
 
     if($id===0){
@@ -320,20 +325,20 @@ if($metodo==='DELETE'){
 
     // [SEGURANÇA] - Verifica se o operador tem senhas CHAMANDO ou EM ATENDIMENTO
     $atendimentoAtivo = Database::fetch(
-        "SELECT id FROM senhas WHERE atendente = (SELECT login FROM operadores WHERE id = ?) AND status IN ('CHAMANDO', 'ATENDIMENTO') LIMIT 1",
-        [$id]
+        "SELECT id FROM senhas WHERE atendente = (SELECT login FROM operadores WHERE id = ? AND tenant_id = ?) AND status IN ('CHAMANDO', 'ATENDIMENTO') AND tenant_id = ? LIMIT 1",
+        [$id, Auth::tenantId(), Auth::tenantId()]
     );
 
     if($atendimentoAtivo){
         throw new Exception('Não é possível excluir um operador com atendimento ativo. Finalize as senhas primeiro.');
     }
 
+    // Alterna o status ativo (Toggle)
     Database::execute(
         "UPDATE operadores
-         SET ativo=0
-         WHERE id=?
-         AND ativo=1",
-        [$id]
+         SET ativo = CASE WHEN ativo = 1 THEN 0 ELSE 1 END
+         WHERE id=? AND tenant_id = ?",
+        [$id, Auth::tenantId()]
     );
 
     echo json_encode([

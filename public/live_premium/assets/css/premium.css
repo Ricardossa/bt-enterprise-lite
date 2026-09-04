@@ -33,6 +33,8 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
+    touch-action: pan-y; /* [v2.1.2] Bloqueia zoom de pinça e scroll lateral */
 }
 
 .live-container {
@@ -44,14 +46,12 @@ body {
     flex-direction: column;
 }
 
-/* HEADER PREMIUM ULTRA-SLIM */
+/* HEADER PREMIUM UNIFICADO */
 .header-premium {
-    background: linear-gradient(135deg, #0019FF 0%, #0012CC 100%);
-    padding: 12px 10px; /* Reduzido ao mÃ­nimo */
-    border-radius: 0 0 25px 25px;
+    background: transparent;
+    padding: 30px 15px 10px;
     text-align: center;
     color: #fff;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
     margin-bottom: 5px;
     flex-shrink: 0;
 }
@@ -172,11 +172,13 @@ main {
 
 .hidden { display: none !important; }
 
-/* EFEITO DE CLIQUE DIAMOND */
+/* EFEITO DE CLIQUE DIAMOND (Feedback Visual de Toque) */
 .btn-premium-service:active {
-    transform: scale(0.95);
+    transform: scale(0.92); /* Efeito de apertar mais visível */
     background: var(--primary) !important;
     border-color: var(--secondary) !important;
+    box-shadow: 0 0 20px var(--secondary) !important; /* Brilho de seleção */
+    transition: transform 0.1s ease;
 }
 
 /* ÃREA DE PROMOÃ‡Ã•ES (SLIM HERO) */

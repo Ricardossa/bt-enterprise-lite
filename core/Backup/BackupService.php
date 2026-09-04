@@ -13,23 +13,21 @@ use Exception;
  */
 final class BackupService
 {
-    private string $dbPath;
     private string $tempDir;
 
     public function __construct()
     {
-        $this->dbPath = dirname(__DIR__, 2) . '/database/banco.db';
         $this->tempDir = dirname(__DIR__, 2) . '/cache/';
     }
 
     /**
-     * Executa o ciclo de backup e envio para a Master
+     * Executa o ciclo de backup MariaDB e envio para a Master
      */
     public function run(): array
     {
         try {
-            // 1. Gera o arquivo ZIP
-            $zipPath = $this->compress();
+            // 1. Gera o arquivo de Dump (.sql.gz)
+            $backupFile = $this->generateDump();
 
             // 2. Obtém identidade
             $identidade = Database::fetch("SELECT uuid, token FROM licencas LIMIT 1");
@@ -48,11 +46,14 @@ final class BackupService
             // Transforma URL de sync em URL de backup
             $endpoint = str_replace('sync.php', 'backup_receiver.php', $masterUrl);
 
-            // 4. Envia via cURL
-            $res = $this->send($endpoint, $identidade['uuid'], $identidade['token'], $zipPath);
+            // 4. Calcula Hash de Integridade
+            $hash = hash_file('sha256', $backupFile);
 
-            // 5. Limpeza
-            @unlink($zipPath);
+            // 5. Envia via cURL
+            $res = $this->send($endpoint, $identidade['uuid'], $identidade['token'], $backupFile, $hash);
+
+            // 6. Limpeza
+            @unlink($backupFile);
 
             return $res;
 
@@ -61,39 +62,83 @@ final class BackupService
         }
     }
 
-    private function compress(): string
+    private function generateDump(): string
     {
-        $zipName = 'backup_' . date('Ymd_His') . '.zip';
-        $zipPath = $this->tempDir . $zipName;
+        $config = require dirname(__DIR__, 2) . '/config/config.php';
+        $dbCfg  = $config['database'];
 
-        $zip = new ZipArchive();
-        if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
-            throw new Exception("Não foi possível criar o arquivo ZIP temporário.");
+        $filename = 'bt_backup_' . date('Ymd_His') . '.sql.gz';
+        $filePath = $this->tempDir . $filename;
+
+        // [v2.6.1] Detecção dinâmica do mysqldump no ambiente Lite
+        $baseDir = dirname(__DIR__, 2);
+        $mysqldump = $baseDir . '/runtime/mariadb/bin/mysqldump.exe';
+
+        if (!file_exists($mysqldump)) {
+            $mysqldump = 'mysqldump';
         }
 
-        // Adiciona o banco de dados (usando apenas o nome 'banco.db' dentro do zip)
-        $zip->addFile($this->dbPath, 'banco.db');
-        $zip->close();
+        // Criar arquivo temporário para o SQL puro
+        $tempSql = $this->tempDir . 'db_dump_' . time() . '.sql';
 
-        return $zipPath;
+        $cmd = sprintf(
+            '"%s" -h %s -u %s -p"%s" --single-transaction --routines --triggers %s > "%s"',
+            $mysqldump,
+            $dbCfg['host'],
+            $dbCfg['username'],
+            $dbCfg['password'],
+            $dbCfg['dbname'],
+            $tempSql
+        );
+
+        exec($cmd, $output, $resultCode);
+
+        if ($resultCode !== 0 || !file_exists($tempSql) || filesize($tempSql) < 100) {
+            if (file_exists($tempSql)) @unlink($tempSql);
+            throw new Exception("Falha ao gerar dump do banco MariaDB. Verifique o utilitário mysqldump.");
+        }
+
+        // Comprimir usando ZLIB do PHP (Independente de utilitários externos como gzip)
+        $fp = fopen($tempSql, 'rb');
+        $zp = gzopen($filePath, 'wb9');
+        if (!$zp) {
+            fclose($fp);
+            throw new Exception("Falha ao criar arquivo comprimido GZ.");
+        }
+
+        while (!feof($fp)) {
+            gzwrite($zp, fread($fp, 65536));
+        }
+        gzclose($zp);
+        fclose($fp);
+
+        // Remover SQL temporário
+        @unlink($tempSql);
+
+        if (!file_exists($filePath) || filesize($filePath) < 100) {
+            throw new Exception("Falha na integridade do arquivo comprimido.");
+        }
+
+        return $filePath;
     }
 
-    private function send(string $url, string $uuid, string $token, string $filePath): array
+    private function send(string $url, string $uuid, string $token, string $filePath, string $hash): array
     {
         $ch = curl_init($url);
 
-        $cfile = new \CURLFile($filePath, 'application/zip', 'backup.zip');
+        $cfile = new \CURLFile($filePath, 'application/x-gzip', 'backup.sql.gz');
 
         $postData = [
             'uuid' => $uuid,
             'token' => $token,
+            'hash' => $hash, // Enviando o selo de integridade
             'backup' => $cfile
         ];
 
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60); // Aumentado para 60s
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
         $response = curl_exec($ch);

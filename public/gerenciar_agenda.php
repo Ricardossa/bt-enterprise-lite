@@ -19,9 +19,11 @@ include __DIR__ . '/includes/header.php';
 
 <style>
     .agenda-manager-card { background: var(--card); border-radius: 15px; border: 1px solid var(--border); padding: 25px; margin-top: 20px; }
-    .day-row { display: grid; grid-template-columns: 150px 100px 100px 80px 150px 80px 60px; gap: 15px; align-items: center; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .day-row { display: grid; gap: 15px; align-items: center; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .day-name { font-weight: bold; color: var(--secondary); text-transform: uppercase; font-size: 13px; }
     .lib-box { font-size: 11px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 5px; }
+
+    .form-label-small { font-size: 11px; color: var(--text3); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 5px; }
 </style>
 
 <main class="bt-main">
@@ -106,6 +108,47 @@ include __DIR__ . '/includes/header.php';
     </div>
 
     <div class="agenda-manager-card">
+        <div style="font-size: 14px; font-weight: bold; color: var(--secondary); margin-bottom: 20px;">
+            <i class="fa-solid fa-clock-slash"></i> BLOQUEIOS E COMPROMISSOS ESPECÍFICOS
+        </div>
+        <p style="color: var(--text2); font-size: 13px; margin-bottom: 20px;">Bloqueie horários para compromissos pontuais de um barbeiro.</p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-end;">
+            <div style="flex: 1;">
+                <label class="form-label-small">Data</label>
+                <input type="date" id="block-date" class="form-control">
+            </div>
+            <div style="width: 100px;">
+                <label class="form-label-small">Início</label>
+                <input type="time" id="block-start" class="form-control" value="12:00">
+            </div>
+            <div style="width: 100px;">
+                <label class="form-label-small">Fim</label>
+                <input type="time" id="block-end" class="form-control" value="13:00">
+            </div>
+            <div style="flex: 1;">
+                <label class="form-label-small">Motivo</label>
+                <input type="text" id="block-reason" class="form-control" placeholder="Ex: Almoço / Médico">
+            </div>
+            <button onclick="addBlock()" class="bt-button bt-secondary">BLOQUEAR AGORA</button>
+        </div>
+
+        <table class="status-table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Horário</th>
+                    <th>Motivo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="lista-bloqueios">
+                <tr><td colspan="4" align="center">Selecione um barbeiro para ver os bloqueios.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="agenda-manager-card">
         <div class="form-group" style="max-width: 400px; margin-bottom: 30px;">
             <label>Selecione o Profissional para Configurar</label>
             <select id="select-operador" class="form-control">
@@ -117,34 +160,27 @@ include __DIR__ . '/includes/header.php';
         </div>
 
         <div id="regras-container" class="hidden">
-            <div class="day-row" style="border-bottom: 2px solid var(--border); padding-bottom: 10px; opacity: 0.6;">
+            <div class="day-row" style="border-bottom: 2px solid var(--border); padding-bottom: 10px; opacity: 0.6; grid-template-columns: 150px 100px 100px 80px 1fr 60px;">
                 <div class="day-name">Dia da Semana</div>
                 <div>Início</div>
                 <div>Fim</div>
                 <div>Slot</div>
-                <div>Liberação (Opcional)</div>
+                <div style="text-align:center;">Pausa / Almoço (Não Agendável)</div>
                 <div>Ativo</div>
             </div>
 
             <?php
             $dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
             foreach ($dias as $index => $nome): ?>
-                <div class="day-row" data-dia="<?= $index ?>">
+                <div class="day-row" data-dia="<?= $index ?>" style="grid-template-columns: 150px 100px 100px 80px 1fr 60px;">
                     <div class="day-name"><?= $nome ?></div>
                     <div><input type="time" class="form-control start-time" value="08:00"></div>
                     <div><input type="time" class="form-control end-time" value="18:00"></div>
                     <div><input type="number" class="form-control slot-duration" value="30"></div>
-                    <div class="lib-box">
-                        <select class="form-control lib-dia" style="font-size:10px; padding:2px;">
-                            <option value="">Sempre Aberto</option>
-                            <?php foreach ($dias as $idx => $n): ?>
-                                <option value="<?= $idx ?>">Só abre na <?= $n ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div style="display:flex; gap:2px; margin-top:5px;">
-                            <input type="time" class="form-control lib-inicio" value="00:00" style="font-size:9px; padding:2px;">
-                            <input type="time" class="form-control lib-fim" value="23:59" style="font-size:9px; padding:2px;">
-                        </div>
+                    <div style="display:flex; align-items:center; gap:10px; justify-content:center;">
+                        <input type="time" class="form-control pause-start" style="width:100px;">
+                        <span>até</span>
+                        <input type="time" class="form-control pause-end" style="width:100px;">
                     </div>
                     <div style="text-align:center;">
                         <input type="checkbox" class="is-active" checked style="transform: scale(1.3);">
@@ -203,13 +239,13 @@ include __DIR__ . '/includes/header.php';
                             row.querySelector('.start-time').value = regra.hora_inicio;
                             row.querySelector('.end-time').value = regra.hora_fim;
                             row.querySelector('.slot-duration').value = regra.duracao_slot;
-                            row.querySelector('.lib-dia').value = regra.liberacao_dia_semana !== null ? regra.liberacao_dia_semana : "";
-                            row.querySelector('.lib-inicio').value = regra.liberacao_hora_inicio || "00:00";
-                            row.querySelector('.lib-fim').value = regra.liberacao_hora_fim || "23:59";
+                            row.querySelector('.pause-start').value = regra.pausa_inicio || "";
+                            row.querySelector('.pause-end').value = regra.pausa_fim || "";
                             row.querySelector('.is-active').checked = parseInt(regra.ativo) === 1;
                         }
                     });
                 }
+                loadBlocks();
             }
         } catch (e) { console.error(e); }
     };
@@ -219,9 +255,8 @@ include __DIR__ . '/includes/header.php';
             row.querySelector('.start-time').value = "08:00";
             row.querySelector('.end-time').value = "18:00";
             row.querySelector('.slot-duration').value = "30";
-            row.querySelector('.lib-dia').value = "";
-            row.querySelector('.lib-inicio').value = "00:00";
-            row.querySelector('.lib-fim').value = "23:59";
+            row.querySelector('.pause-start').value = "";
+            row.querySelector('.pause-end').value = "";
             row.querySelector('.is-active').checked = false;
         });
     }
@@ -237,9 +272,8 @@ include __DIR__ . '/includes/header.php';
                 hora_inicio: row.querySelector('.start-time').value,
                 hora_fim: row.querySelector('.end-time').value,
                 duracao_slot: row.querySelector('.slot-duration').value,
-                liberacao_dia: row.querySelector('.lib-dia').value,
-                liberacao_inicio: row.querySelector('.lib-inicio').value,
-                liberacao_fim: row.querySelector('.lib-fim').value,
+                pausa_inicio: row.querySelector('.pause-start').value,
+                pausa_fim: row.querySelector('.pause-end').value,
                 ativo: row.querySelector('.is-active').checked ? 1 : 0
             });
         });
@@ -276,6 +310,58 @@ include __DIR__ . '/includes/header.php';
 
         $dom.btnSalvar.disabled = false;
         $dom.btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> SALVAR CONFIGURAÇÃO';
+    };
+
+    // --- MÓDULO DE BLOQUEIOS ESPECÍFICOS (v2.9.0) ---
+    async function loadBlocks() {
+        const opId = $dom.select.value;
+        if (!opId) return;
+
+        const res = await fetch(`api/v1/agenda.php?action=listar_bloqueios&operador_id=${opId}`);
+        const json = await res.json();
+        const body = document.getElementById('lista-bloqueios');
+
+        body.innerHTML = json.data.map(b => `
+            <tr>
+                <td>${new Date(b.data + 'T12:00:00').toLocaleDateString()}</td>
+                <td><b>${b.hora_inicio} até ${b.hora_fim}</b></td>
+                <td><small>${b.motivo}</small></td>
+                <td>
+                    <button onclick="removeBlock(${b.id})" class="bt-button bt-danger" style="padding:5px 10px; font-size:10px;">REMOVER</button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="4" class="text-center">Nenhum bloqueio para este barbeiro.</td></tr>';
+    }
+
+    window.addBlock = async () => {
+        const opId = $dom.select.value;
+        const data = document.getElementById('block-date').value;
+        const inicio = document.getElementById('block-start').value;
+        const fim = document.getElementById('block-end').value;
+        const motivo = document.getElementById('block-reason').value;
+
+        if (!opId || !data || !inicio || !fim) return alert("Preencha todos os campos do bloqueio.");
+
+        const res = await fetch('api/v1/agenda.php?action=add_bloqueio', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ operador_id: opId, data, hora_inicio: inicio, hora_fim: fim, motivo })
+        });
+        const json = await res.json();
+        if (json.success) {
+            loadBlocks();
+            BT.toast.sucesso("Horário bloqueado com sucesso!");
+        }
+    };
+
+    window.removeBlock = async (id) => {
+        if (!confirm("Remover este bloqueio?")) return;
+        await fetch('api/v1/agenda.php?action=remove_bloqueio', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id })
+        });
+        loadBlocks();
     };
 
     // --- FUNÇÕES DE SUSPENSÃO (v6.3) ---

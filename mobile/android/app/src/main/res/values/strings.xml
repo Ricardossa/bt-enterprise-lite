@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BT Barber</string>
+    <string name="title_activity_main">BT Barber</string>
+    <string name="package_name">br.com.brandaotech.barber</string>
+    <string name="custom_url_scheme">br.com.brandaotech.barber</string>
+</resources>

@@ -30,6 +30,21 @@ class QueueService
             $opInfo = Database::fetch("SELECT prefixo FROM operadores WHERE id = ? AND tenant_id = ?", [$operadorId, $tenantId]);
             $prefixoFinal = strtoupper($opInfo['prefixo'] ?? $prefixo);
 
+            // [LITE v4.2.1] FONTE DA VERDADE: Calcula preÃ§o vigente direto no Core (Ignora input se promo ativa)
+            $calc = ServicoService::getPrecoVigente($servicoId, $tenantId);
+            $valorTotal = $calc['preco'];
+            $isPromo = $calc['is_promo'];
+
+            // Se houver servicos adicionais (Combos no Totem), recalcula o total
+            if (!empty($adicionais)) {
+                $valorTotal = 0; // Reseta para somar todos os itens do combo
+                foreach ($adicionais as $sid) {
+                    $itemCalc = ServicoService::getPrecoVigente((int)$sid, $tenantId);
+                    $valorTotal += $itemCalc['preco'];
+                    if ($itemCalc['is_promo']) $isPromo = true;
+                }
+            }
+
             $ultima = Database::fetch(
                 "SELECT numero FROM senhas
                  WHERE operador_id = ? AND tenant_id = ?
@@ -52,6 +67,26 @@ class QueueService
                 $desc = implode(' + ', array_column($nomes, 'nome'));
             }
 
+            // [LITE v2.8.0] Inteligência de Assinatura no Totem
+            $usouAssinatura = false;
+            $assinaturaId = 0;
+            if ($clienteId > 0) {
+                $assinatura = Database::fetch("
+                    SELECT a.id, p.servico_vinculado_id
+                    FROM clube_assinaturas a
+                    JOIN clube_planos p ON p.id = a.plano_id
+                    WHERE a.cliente_id = ? AND a.tenant_id = ? AND a.status = 'ATIVA'
+                    AND a.data_fim >= CURDATE() AND a.cortes_restantes > 0
+                    ORDER BY a.id DESC LIMIT 1
+                ", [$clienteId, $tenantId]);
+
+                if ($assinatura && (int)$servicoId === (int)$assinatura['servico_vinculado_id']) {
+                    $valorTotal = 0;
+                    $usouAssinatura = true;
+                    $assinaturaId = (int)$assinatura['id'];
+                }
+            }
+
             $data = [
                 'tenant_id' => $tenantId,
                 'uuid' => $uuid,
@@ -67,6 +102,8 @@ class QueueService
                 'status' => 'AGUARDANDO',
                 'device_id' => $deviceId,
                 'valor_total' => $valorTotal,
+                'is_promo' => $isPromo ? 1 : 0, // [LITE v4.2.0] Rastreio de promoção aplicada
+                'pagamento_status' => $usouAssinatura ? 'ISENTO' : 'PENDENTE',
                 'servicos_desc' => $desc,
                 'created_at' => $agora,
                 'emitida_em' => $agora
@@ -81,6 +118,11 @@ class QueueService
             );
 
             $id = Database::lastInsertId();
+
+            // Se usou assinatura, debita o corte agora
+            if ($usouAssinatura && $assinaturaId > 0) {
+                Database::execute("UPDATE clube_assinaturas SET cortes_restantes = cortes_restantes - 1 WHERE id = ?", [$assinaturaId]);
+            }
 
             // [LITE v3.5.9] Registra Atividade em Tempo Real
             ActivityService::log('SUCCESS', 'FILA', "Nova senha emitida: $codigoGerado", [], $nomeCliente ?: 'Totem');
@@ -124,7 +166,7 @@ class QueueService
         }
     }
 
-    public function chamar($param1, ?int $guicheId = null, ?string $atendente = null): array
+    public function chamar($param1, ?int $guicheId = null, ?string $atendente = null, ?int $forceOperadorId = null): array
     {
         try {
             Database::beginImmediate();
@@ -133,13 +175,17 @@ class QueueService
             $isModoNovo = ($guicheId !== null);
             $guicheIdFinal = null;
             $servicoId = null;
-            $operadorId = 0;
+            $operadorId = $forceOperadorId ?? 0;
 
             if ($isModoNovo) {
                 $servicoId = (int)$param1;
                 $guicheIdFinal = $guicheId;
-                $opData = Database::fetch("SELECT id FROM operadores WHERE guiche_id = ? AND tenant_id = ? AND ativo = 1 LIMIT 1", [$guicheIdFinal, $tenantId]);
-                $operadorId = $opData ? (int)$opData['id'] : 0;
+
+                // Se não foi forçado, busca pelo guichê (Modo Legado/Totem)
+                if ($operadorId <= 0) {
+                    $opData = Database::fetch("SELECT id FROM operadores WHERE guiche_id = ? AND tenant_id = ? AND ativo = 1 LIMIT 1", [$guicheIdFinal, $tenantId]);
+                    $operadorId = $opData ? (int)$opData['id'] : 0;
+                }
             } else {
                 $guicheCodigoLogico = (string)$param1;
                 $guicheInfo = Database::fetch("SELECT id FROM guiches WHERE codigo = ? AND tenant_id = ? LIMIT 1", [$guicheCodigoLogico, $tenantId]);
@@ -228,10 +274,15 @@ class QueueService
                 $paramsUpdate
             );
 
-            // [FIX LITE]: Adiciona na Fila de Sincronização do Painel/TV o NOME se for agendado
+            // [FIX v7.5.5] Inteligência de Nome: Prioriza Nome do Cliente para Agendados ou se existir
             $textoPainel = $senha['codigo'];
-            if (!empty($senha['nome_cliente']) && (strlen($senha['codigo']) <= 3 || $senha['codigo'] === 'AGD' || $senha['tipo_atendimento'] === 'AGENDAMENTO')) {
-                $textoPainel = strtoupper($senha['nome_cliente']); // Nome completo
+            if (!empty($senha['nome_cliente'])) {
+                $isAgendado = (str_starts_with($senha['codigo'], 'AGD') || $senha['tipo_atendimento'] === 'AGENDAMENTO' || !empty($senha['data_agendamento']));
+
+                // Se for agendado OU tiver nome curto (balcão identificado), usa o Nome
+                if ($isAgendado || strlen($senha['codigo']) <= 3) {
+                    $textoPainel = strtoupper($senha['nome_cliente']);
+                }
             }
 
             // [NOVO] Busca o nome do guichê para que a TV possa falar o local corretamente
@@ -302,7 +353,11 @@ class QueueService
 
             // [FIX LITE]: Adiciona na Fila de Sincronização do Painel/TV o NOME se for agendado
             $textoPainel = $senha['codigo'];
-            if (!empty($senha['nome_cliente']) && (strlen($senha['codigo']) <= 3 || $senha['tipo_atendimento'] === 'AGENDAMENTO')) {
+            if (!empty($senha['nome_cliente']) && (
+                strlen($senha['codigo']) <= 3 ||
+                $senha['tipo_atendimento'] === 'AGENDAMENTO' ||
+                !empty($senha['data_agendamento'])
+            )) {
                 $textoPainel = strtoupper($senha['nome_cliente']); // Nome completo
             }
 
@@ -396,53 +451,68 @@ class QueueService
                  WHERE s.status='CHAMANDO' AND s.guiche_id = ? AND s.tenant_id = ? ORDER BY s.chamada_em DESC LIMIT 1",
                 [$guicheId, $tenantId]
             );
-
-            // [LITE v3.3.6] Carrega regra de liberação para filtro da fila
-            $releaseMode = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'booking_release_mode' AND tenant_id = ? LIMIT 1", [$tenantId])['valor'] ?? 'immediate';
-
-            $sqlFila = "SELECT s.*, sv.nome as servico_nome
-                        FROM senhas s
-                        LEFT JOIN servicos sv ON s.servico_id = sv.id
-                        WHERE s.status IN ('AGUARDANDO', 'CONGELADA', 'PRESENTE')
-                        AND s.tenant_id = ?
-                        AND (DATE(s.created_at) = CURDATE() OR DATE(s.data_agendamento) = CURDATE()) ";
-
-            // Se for 'after_payment', só mostra na fila o que estiver PAGO ou ISENTO
-            if ($releaseMode === 'after_payment') {
-                $sqlFila .= " AND (s.pagamento_status IN ('PAGO', 'ISENTO')) ";
+        } else {
+            // [LITE v3.9.1] MODO MURAL GLOBAL: Busca a última chamada com JOIN no Guichê para voz Alexa
+            $chamando = Database::fetch(
+                "SELECT s.*, sv.nome as servico_nome, g.nome as guiche_nome
+                 FROM senhas s
+                 JOIN servicos sv ON s.servico_id = sv.id
+                 LEFT JOIN guiches g ON g.id = s.guiche_id
+                 WHERE s.status='CHAMANDO' AND s.tenant_id = ? ORDER BY s.chamada_em DESC LIMIT 1",
+                [$tenantId]
+            );
+            if ($chamando) {
+                $guicheCodigo = $chamando['guiche_nome'] ?: "Cadeira " . $chamando['guiche_id'];
             }
-
-            if ($operadorId > 0) {
-                // [LITE v3.5.7] REGRA DE OURO: Operador visualiza APENAS suas senhas OU senhas da Fila Geral (ID 0)
-                $especialidades = Database::fetchAll("SELECT servico_id FROM operador_servicos WHERE operador_id = ?", [$operadorId]);
-                $servicoIds = array_column($especialidades, 'servico_id');
-
-                $filter = "(s.operador_id = $operadorId";
-                if (!empty($servicoIds)) {
-                    $idsList = implode(',', $servicoIds);
-                    $filter .= " OR ( (s.operador_id = 0 OR s.operador_id IS NULL) AND s.servico_id IN ($idsList) )";
-                }
-                $filter .= ")";
-                $sqlFila .= " AND $filter";
-            }
-
-            $sqlFila .= " ORDER BY s.id ASC";
-            $fila = Database::fetchAll($sqlFila, [$tenantId]);
-
-            $sqlAgd = "SELECT id, codigo, nome_cliente, data_agendamento, status, servicos_desc, valor_total, pagamento_status
-                       FROM senhas
-                       WHERE tenant_id = ? AND status IN ('AGENDADO', 'PRESENTE')
-                       AND DATE(data_agendamento) = CURDATE() ";
-
-            if ($operadorId > 0) $sqlAgd .= " AND operador_id = $operadorId";
-            $sqlAgd .= " ORDER BY data_agendamento ASC";
-            $agendados = Database::fetchAll($sqlAgd, [$tenantId]);
         }
 
-        $operadorNome = 'Operador Geral';
+        // [LITE v3.9.0] CARGA DE FILA E AGENDA (Agora fora do bloco de Guichê para suportar TV/Mural)
+        $releaseMode = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'booking_release_mode' AND tenant_id = ? LIMIT 1", [$tenantId])['valor'] ?? 'immediate';
+
+        $sqlFila = "SELECT s.*, sv.nome as servico_nome
+                    FROM senhas s
+                    LEFT JOIN servicos sv ON s.servico_id = sv.id
+                    WHERE s.status IN ('AGUARDANDO', 'CONGELADA', 'PRESENTE')
+                    AND s.tenant_id = ?
+                    AND (DATE(s.created_at) = CURDATE() OR DATE(s.data_agendamento) = CURDATE()) ";
+
+        if ($releaseMode === 'after_payment') {
+            $sqlFila .= " AND (s.pagamento_status IN ('PAGO', 'ISENTO')) ";
+        }
+
         if ($operadorId > 0) {
-            $operador = Database::fetch("SELECT nome FROM operadores WHERE id = ? AND tenant_id = ? LIMIT 1", [$operadorId, $tenantId]);
-            if ($operador) $operadorNome = $operador['nome'];
+            $especialidades = Database::fetchAll("SELECT servico_id FROM operador_servicos WHERE operador_id = ?", [$operadorId]);
+            $servicoIds = array_column($especialidades, 'servico_id');
+            $filter = "(s.operador_id = $operadorId";
+            if (!empty($servicoIds)) {
+                $idsList = implode(',', $servicoIds);
+                $filter .= " OR ( (s.operador_id = 0 OR s.operador_id IS NULL) AND s.servico_id IN ($idsList) )";
+            }
+            $filter .= ")";
+            $sqlFila .= " AND $filter";
+        }
+
+        $sqlFila .= " ORDER BY s.id ASC";
+        $fila = Database::fetchAll($sqlFila, [$tenantId]);
+
+        $sqlAgd = "SELECT s.id, s.codigo, s.nome_cliente, s.data_agendamento, s.status, s.servicos_desc, s.valor_total, s.pagamento_status, o.nome as barbeiro_nome
+                   FROM senhas s
+                   LEFT JOIN operadores o ON o.id = s.operador_id
+                   WHERE s.tenant_id = ? AND s.status IN ('AGENDADO', 'PRESENTE')
+                   AND DATE(s.data_agendamento) = CURDATE() ";
+
+        if ($operadorId > 0) $sqlAgd .= " AND operador_id = $operadorId";
+        $sqlAgd .= " ORDER BY data_agendamento ASC";
+        $agendados = Database::fetchAll($sqlAgd, [$tenantId]);
+
+        $operadorNome = 'Operador Geral';
+        $operadorStatus = 'ONLINE';
+        if ($operadorId > 0) {
+            $operador = Database::fetch("SELECT nome, status FROM operadores WHERE id = ? AND tenant_id = ? LIMIT 1", [$operadorId, $tenantId]);
+            if ($operador) {
+                $operadorNome = $operador['nome'];
+                $operadorStatus = $operador['status'] ?: 'ONLINE';
+            }
         }
 
         $config = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'label_cliente' AND tenant_id = ? LIMIT 1", [$tenantId]);
@@ -450,7 +520,7 @@ class QueueService
 
         $ganhos = 0; $totalServicos = 0;
         if ($operadorId > 0) {
-            $fin = Database::fetch("SELECT SUM(valor_total) as total, COUNT(*) as qtd FROM senhas WHERE operador_id = ? AND tenant_id = ? AND status = 'FINALIZADA' AND DATE(created_at) = CURDATE()
+            $fin = Database::fetch("SELECT SUM(valor_total) as total, COUNT(*) as qtd FROM senhas WHERE operador_id = ? AND tenant_id = ? AND status = 'FINALIZADA' AND DATE(finalizada_em) = CURDATE()
 ", [$operadorId, $tenantId]);
             $ganhos = (float)($fin['total'] ?? 0);
             $totalServicos = (int)($fin['qtd'] ?? 0);
@@ -459,6 +529,7 @@ class QueueService
         return [
             'operador_nome' => $operadorNome,
             'operador_id' => $operadorId,
+            'status' => $operadorStatus,
             'guiche_codigo' => $guicheCodigo,
             'label_cliente' => $label,
             'ganhos_hoje' => $ganhos,
@@ -472,18 +543,35 @@ class QueueService
                 'is_hospital' => !empty($chamando['nome_cliente']),
                 'servico_nome' => $chamando['servicos_desc'] ?: $chamando['servico_nome'],
                 'guiche' => $guicheCodigo,
+                'barbeiro' => $chamando['atendente'] ?: 'Equipe',
                 'pagamento_status' => $chamando['pagamento_status']
             ] : null,
-            'fila' => array_map(fn($i) => ['id'=>(int)$i['id'], 'codigo'=>$i['codigo'], 'nome_cliente'=>$i['nome_cliente'], 'servico_nome'=>$i['servicos_desc']?:$i['servico_nome'], 'status'=>$i['status'], 'valor_total'=>(float)$i['valor_total']], $fila ?? []),
-            'agendados' => array_map(fn($i) => ['id'=>(int)$i['id'], 'codigo'=>$i['codigo'], 'nome_cliente'=>$i['nome_cliente'], 'data_agendamento'=>$i['data_agendamento'], 'status'=>$i['status']], $agendados ?? [])
+            'fila' => array_map(fn($i) => [
+                'id' => (int)$i['id'],
+                'codigo' => $i['codigo'],
+                'nome_cliente' => $i['nome_cliente'],
+                'servico_nome' => $i['servicos_desc'] ?: $i['servico_nome'],
+                'status' => $i['status'],
+                'valor_total' => (float)$i['valor_total'],
+                'pagamento_status' => $i['pagamento_status'] // [v3.9.4] Incluído para detecção VIP
+            ], $fila ?? []),
+            'agendados' => array_map(fn($i) => ['id'=>(int)$i['id'], 'codigo'=>$i['codigo'], 'nome_cliente'=>$i['nome_cliente'], 'data_agendamento'=>$i['data_agendamento'], 'status'=>$i['status'], 'barbeiro_nome'=>$i['barbeiro_nome']], $agendados ?? []),
+            'historico' => $this->getHistoricoChamadas(5) // [v1.8.1] Injetando histórico no estado
         ];
     }
 
     public function getHistoricoChamadas(int $limit = 5): array
     {
         $tenantId = Auth::tenantId();
-        return Database::fetchAll("SELECT codigo as senha, chamada_em FROM senhas WHERE status IN ('CHAMANDO', 'FINALIZADA') AND tenant_id = ? AND DATE(created_at) = CURDATE()
- ORDER BY chamada_em DESC LIMIT ?", [$tenantId, $limit]);
+        return Database::fetchAll("
+            SELECT s.codigo as senha, s.nome_cliente, g.nome as guiche_nome, s.chamada_em, s.pagamento_status
+            FROM senhas s
+            LEFT JOIN guiches g ON g.id = s.guiche_id
+            WHERE s.status IN ('CHAMANDO', 'FINALIZADA')
+            AND s.tenant_id = ?
+            AND DATE(s.chamada_em) = CURDATE()
+            ORDER BY s.chamada_em DESC LIMIT ?",
+        [$tenantId, $limit]);
     }
 
     public function getStatsPorPeriodo(?string $inicio = null, ?string $fim = null): array
@@ -500,35 +588,24 @@ class QueueService
             ];
         }
 
-        $where = "tenant_id = ?";
-        $params = [$tenantId];
-
-        if ($inicio !== null && $fim !== null) {
-            $where .= " AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)";
-            $params[] = $inicio;
-            $params[] = $fim;
-        } else {
-            $where .= " AND DATE(created_at) = CURDATE()";
-        }
+        $pInicio = $inicio ?? date('Y-m-d');
+        $pFim = $fim ?? date('Y-m-d');
 
         $row = Database::fetch(
             "SELECT
-                COUNT(*) AS emitidas,
-                SUM(CASE
-                    WHEN status IN ('CHAMANDO', 'EM_ATENDIMENTO', 'FINALIZADA')
-                    THEN 1 ELSE 0
-                END) AS chamadas,
-                SUM(CASE
-                    WHEN status IN ('AGUARDANDO', 'PRESENTE')
-                    THEN 1 ELSE 0
-                END) AS pendentes,
-                SUM(CASE
-                    WHEN status = 'FINALIZADA'
-                    THEN 1 ELSE 0
-                END) AS finalizadas
+                SUM(CASE WHEN DATE(created_at) BETWEEN ? AND ? THEN 1 ELSE 0 END) AS emitidas,
+                SUM(CASE WHEN status IN ('CHAMANDO', 'FINALIZADA') AND DATE(chamada_em) BETWEEN ? AND ? THEN 1 ELSE 0 END) AS chamadas,
+                SUM(CASE WHEN status IN ('AGUARDANDO', 'PRESENTE') AND (DATE(created_at) BETWEEN ? AND ? OR DATE(data_agendamento) BETWEEN ? AND ?) THEN 1 ELSE 0 END) AS pendentes,
+                SUM(CASE WHEN status = 'FINALIZADA' AND DATE(finalizada_em) BETWEEN ? AND ? THEN 1 ELSE 0 END) AS finalizadas,
+                SUM(CASE WHEN status = 'FINALIZADA' AND DATE(finalizada_em) BETWEEN ? AND ? THEN valor_total ELSE 0 END) AS ganhos_hoje
              FROM senhas
-             WHERE {$where}",
-            $params
+             WHERE tenant_id = ?
+             AND (
+                DATE(created_at) BETWEEN ? AND ?
+                OR DATE(finalizada_em) BETWEEN ? AND ?
+                OR DATE(data_agendamento) BETWEEN ? AND ?
+             )",
+            [$pInicio, $pFim, $pInicio, $pFim, $pInicio, $pFim, $pInicio, $pFim, $pInicio, $pFim, $pInicio, $pFim, $tenantId, $pInicio, $pFim, $pInicio, $pFim, $pInicio, $pFim]
         );
 
         return [
@@ -536,6 +613,7 @@ class QueueService
             'chamadas' => (int)($row['chamadas'] ?? 0),
             'pendentes' => (int)($row['pendentes'] ?? 0),
             'finalizadas' => (int)($row['finalizadas'] ?? 0),
+            'ganhos_hoje' => (float)($row['ganhos_hoje'] ?? 0),
             'success' => true
         ];
     }

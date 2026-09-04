@@ -34,27 +34,30 @@ include __DIR__ . '/includes/header.php';
 
         <div style="display:flex; gap:10px; background:var(--sidebar); padding:5px; border-radius:12px; border:1px solid var(--border);">
             <button onclick="setPeriodo('hoje')" class="bt-button" id="btn-hoje" style="padding:8px 15px; font-size:12px;">HOJE</button>
+            <button onclick="setPeriodo('semana')" class="bt-button" id="btn-semana" style="padding:8px 15px; font-size:12px; background:transparent;">ESTA SEMANA</button>
             <button onclick="setPeriodo('mes')" class="bt-button" id="btn-mes" style="padding:8px 15px; font-size:12px; background:transparent;">MÊS</button>
-            <button onclick="setPeriodo('ano')" class="bt-button" id="btn-ano" style="padding:8px 15px; font-size:12px; background:transparent;">ANO</button>
+            <input type="date" id="filtro-inicio" style="width:130px; font-size:10px; margin-top:0; height:32px;" onchange="setPeriodo('custom')">
+            <input type="date" id="filtro-fim" style="width:130px; font-size:10px; margin-top:0; height:32px;" onchange="setPeriodo('custom')">
         </div>
     </div>
 
     <!-- RESUMO RÁPIDO -->
-    <div class="fin-grid">
+    <div class="fin-grid" style="grid-template-columns: repeat(4, 1fr);">
         <div class="fin-card" style="border-left: 4px solid var(--primary);">
-            <div class="fin-title">Receita Bruta (Finalizada)</div>
-            <div class="fin-value" id="val-bruta">R$ 0,00</div>
-            <div style="margin-top:10px; font-size:12px; color:var(--text3);">Total acumulado no período</div>
+            <div class="fin-title">Receita Bruta</div>
+            <div class="fin-value" id="val-bruta" style="font-size:24px;">R$ 0,00</div>
+        </div>
+        <div class="fin-card" style="border-left: 4px solid var(--secondary);">
+            <div class="fin-title">Comissões (A Pagar)</div>
+            <div class="fin-value" id="val-comissao" style="color:var(--secondary); font-size:24px;">R$ 0,00</div>
         </div>
         <div class="fin-card" style="border-left: 4px solid var(--success);">
-            <div class="fin-title">Total Recebido (PIX/Pago)</div>
-            <div class="fin-value" id="val-paga" style="color:var(--success);">R$ 0,00</div>
-            <div style="margin-top:10px; font-size:12px; color:var(--text3);">Pagamentos confirmados</div>
+            <div class="fin-title">Total Recebido</div>
+            <div class="fin-value" id="val-paga" style="color:var(--success); font-size:24px;">R$ 0,00</div>
         </div>
         <div class="fin-card" style="border-left: 4px solid var(--warning);">
-            <div class="fin-title">A Receber (Pendente)</div>
-            <div class="fin-value" id="val-pendente" style="color:var(--warning);">R$ 0,00</div>
-            <div style="margin-top:10px; font-size:12px; color:var(--text3);">Aguardando checkout ou manual</div>
+            <div class="fin-title">Assinaturas VIP</div>
+            <div class="fin-value" id="val-vip" style="color:var(--warning); font-size:24px;">0</div>
         </div>
     </div>
 
@@ -68,9 +71,10 @@ include __DIR__ . '/includes/header.php';
                     <tr>
                         <th>Barbeiro</th>
                         <th style="text-align:center;">Serviços</th>
+                        <th style="text-align:center; color:var(--warning);">VIP/Club</th>
                         <th style="text-align:right;">Bruto</th>
-                        <th style="text-align:right;">Pago</th>
-                        <th style="text-align:right;">A Receber</th>
+                        <th style="text-align:right; color:var(--secondary);">Comissão</th>
+                        <th style="text-align:right;">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="lista-barbeiros">
@@ -108,6 +112,25 @@ include __DIR__ . '/includes/header.php';
         </table>
     </div>
 
+    <!-- 💰 HISTÓRICO DE PAGAMENTOS -->
+    <div class="fin-card" style="margin-top:25px; border-top: 4px solid var(--primary);">
+        <h3 style="font-size:16px; margin-bottom:20px;"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Pagamentos aos Barbeiros</h3>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Data Pagamento</th>
+                    <th>Barbeiro</th>
+                    <th>Período Apurado</th>
+                    <th style="text-align:right;">Valor Pago</th>
+                    <th style="text-align:right;">Responsável</th>
+                </tr>
+            </thead>
+            <tbody id="lista-historico">
+                <!-- Injetado via JS -->
+            </tbody>
+        </table>
+    </div>
+
 </main>
 
 <script>
@@ -118,26 +141,42 @@ function formatMoeda(v) {
 }
 
 function getDatas() {
-    const agora = new Date();
+    const hoje = new Date();
     let inicio, fim;
-    const format = (d) => `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+    const format = (d) => {
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
 
-    if (filtroAtual === 'mes') {
-        inicio = format(new Date(agora.getFullYear(), agora.getMonth(), 1));
-        fim = format(new Date(agora.getFullYear(), agora.getMonth() + 1, 0));
-    } else if (filtroAtual === 'ano') {
-        inicio = format(new Date(agora.getFullYear(), 0, 1));
-        fim = format(new Date(agora.getFullYear(), 11, 31));
+    if (filtroAtual === 'semana') {
+        const agora = new Date();
+        const dia = agora.getDay();
+        const diff = agora.getDate() - dia + (dia === 0 ? -6 : 1);
+        const segunda = new Date(agora.setDate(diff));
+        inicio = format(segunda);
+        fim = format(hoje);
+    } else if (filtroAtual === 'mes') {
+        inicio = format(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+        fim = format(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
+    } else if (filtroAtual === 'custom') {
+        inicio = document.getElementById('filtro-inicio').value;
+        fim = document.getElementById('filtro-fim').value;
+        if (!inicio || !fim) {
+            inicio = format(hoje);
+            fim = format(hoje);
+        }
     } else {
-        inicio = format(agora);
-        fim = format(agora);
+        inicio = format(hoje);
+        fim = format(hoje);
     }
     return { inicio, fim };
 }
 
 function setPeriodo(p) {
     filtroAtual = p;
-    ['hoje', 'mes', 'ano'].forEach(btn => {
+    ['hoje', 'semana', 'mes'].forEach(btn => {
         const el = document.getElementById('btn-' + btn);
         if (el) el.style.background = (btn === p) ? 'var(--primary)' : 'transparent';
     });
@@ -156,28 +195,34 @@ async function carregarDados() {
         const d = json.data;
 
         // Cards
-        document.getElementById('val-bruta').innerText = formatMoeda(d.resumo.receita_bruta);
-        document.getElementById('val-paga').innerText = formatMoeda(d.resumo.receita_paga);
-        document.getElementById('val-pendente').innerText = formatMoeda(d.resumo.receita_pendente);
+        document.getElementById('val-bruta').innerText = formatMoeda(d.resumo.receita_bruta || 0);
+        document.getElementById('val-comissao').innerText = formatMoeda(d.resumo.total_a_pagar || 0);
+        document.getElementById('val-paga').innerText = formatMoeda(d.resumo.receita_paga || 0);
+        document.getElementById('val-vip').innerText = d.resumo.total_vip || 0;
 
         // Tabela Barbeiros
         const listB = document.getElementById('lista-barbeiros');
-        listB.innerHTML = d.barbeiros.map(b => `
+        listB.innerHTML = d.barbeiros.map(b => {
+            const nome = b.barbeiro || 'Profissional';
+            return `
             <tr>
                 <td>
                     <div style="display:flex; align-items:center; gap:12px;">
-                        <div class="barber-avatar">${b.barbeiro.substring(0,2).toUpperCase()}</div>
-                        <b>${b.barbeiro}</b>
+                        <div class="barber-avatar">${nome.substring(0,2).toUpperCase()}</div>
+                        <b>${nome}</b>
                     </div>
                 </td>
                 <td align="center">${b.total_servicos}</td>
-                <td align="right"><b>${formatMoeda(b.total_gerado)}</b></td>
-                <td align="right" style="color:var(--success)">${formatMoeda(b.total_pago)}</td>
-                <td align="right" style="color: ${parseFloat(b.total_pendente) > 0 ? 'var(--warning)' : 'var(--text3)'}">
-                    ${formatMoeda(b.total_pendente)}
+                <td align="center"><span class="badge" style="background:rgba(245, 166, 35, 0.1); color:var(--warning); padding:4px 10px; border-radius:10px;">${b.total_vip} 👑</span></td>
+                <td align="right"><b>${formatMoeda(b.total_gerado || 0)}</b></td>
+                <td align="right" style="color:var(--secondary); font-weight:bold;">${formatMoeda(b.total_a_pagar || 0)}</td>
+                <td align="right">
+                    <button onclick="pagarComissao(${b.id}, ${b.total_a_pagar}, '${nome}')" class="bt-button" style="padding:5px 12px; font-size:11px; background:#2ecc71;">
+                        <i class="fa-solid fa-hand-holding-dollar"></i> PAGAR
+                    </button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center">Nenhum dado financeiro.</td></tr>';
+        `}).join('') || '<tr><td colspan="6" class="text-center">Nenhum dado financeiro.</td></tr>';
 
         // Lista Serviços
         const listS = document.getElementById('lista-servicos');
@@ -204,6 +249,7 @@ async function carregarDados() {
                 <td>
                     <b style="display:block;">${p.nome_cliente || 'Cliente de Porta'}</b>
                     <small style="color:var(--text3)">${p.servicos_desc}</small>
+                    ${p.is_promo == 1 ? '<span class="badge" style="background:rgba(29, 180, 255, 0.1); color:var(--secondary); font-size:9px; padding:2px 5px; margin-left:5px;">💎 PROMO</span>' : ''}
                 </td>
                 <td align="right"><b style="color:var(--warning)">${formatMoeda(p.valor_total)}</b></td>
                 <td align="right">
@@ -214,7 +260,54 @@ async function carregarDados() {
             </tr>
         `).join('') || '<tr><td colspan="5" align="center" style="padding:40px; color:var(--text3);">✅ Tudo em dia! Nenhuma pendência de conferência.</td></tr>';
 
+        // Lista Histórico
+        const listH = document.getElementById('lista-historico');
+        listH.innerHTML = d.historico.map(h => `
+            <tr>
+                <td>
+                    <span style="font-size:12px;">${new Date(h.data_pagamento).toLocaleString('pt-BR')}</span>
+                </td>
+                <td>
+                    <b style="font-size:13px; color:var(--primary);">${h.barbeiro_nome}</b>
+                </td>
+                <td>
+                    <span style="font-size:12px; color:var(--text3);">${h.data_inicio.split('-').reverse().join('/')} até ${h.data_fim.split('-').reverse().join('/')}</span>
+                </td>
+                <td align="right"><b style="color:var(--success)">${formatMoeda(h.valor)}</b></td>
+                <td align="right">
+                    <small style="color:var(--text3)">${h.admin_nome}</small>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" align="center" style="padding:40px; color:var(--text3);">Nenhum pagamento registrado.</td></tr>';
+
     } catch (e) { console.error(e); }
+}
+
+async function pagarComissao(operadorId, valor, barbeiroNome) {
+    if (valor <= 0) return alert("Não há comissão para este barbeiro no período.");
+    const { inicio, fim } = getDatas();
+
+    if (!confirm(`Confirmar o pagamento de ${formatMoeda(valor)} para ${barbeiroNome} referente ao período de ${inicio} a ${fim}?`)) return;
+
+    try {
+        const res = await fetch(`api/v1/financeiro_stats.php?action=pagar_comissao`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                operador_id: operadorId,
+                valor: valor,
+                data_inicio: inicio,
+                data_fim: fim
+            })
+        });
+        const json = await res.json();
+        if (json.success) {
+            alert("Pagamento registrado com sucesso!");
+            carregarDados();
+        } else {
+            alert("Erro: " + (json.message || "Desconhecido"));
+        }
+    } catch(e) { alert("Erro na conexão."); }
 }
 
 async function confirmarRecebimento(uuid) {

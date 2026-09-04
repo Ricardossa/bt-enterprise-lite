@@ -36,6 +36,10 @@
                 <a href="https://www.instagram.com/brandaotech_oficial" target="_blank" style="background:linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); color:white; padding:15px; border-radius:15px; text-decoration:none; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:8px; font-size:13px;">
                     <i class="fa-brands fa-instagram" style="font-size:18px;"></i> Instagram
                 </a>
+                <!-- [v4.1.2] Call to Action SaaS -->
+                <a href="https://api.brandaotech.com.br/registrar.php" target="_blank" style="grid-column: span 2; background:var(--primary); color:white; padding:18px; border-radius:15px; text-decoration:none; font-weight:900; display:flex; align-items:center; justify-content:center; gap:10px; font-size:14px; text-transform: uppercase; box-shadow: 0 10px 20px rgba(21, 101, 192, 0.3);">
+                    <i class="fa-solid fa-rocket"></i> Solicitar Ativação SaaS
+                </a>
             </div>
         </div>
 

@@ -1,0 +1,10 @@
+{
+  "appId": "br.com.brandaotech.barber",
+  "appName": "BT Barber Pro",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "http",
+    "allowMixedContent": true
+  }
+}

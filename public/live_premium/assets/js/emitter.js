@@ -77,11 +77,14 @@ BT.emitter = {
             const json = await res.json();
             if (json.success) {
                 list.innerHTML = json.data.map(s => `
-                    <div class="item-list-mobile" id="m-serv-${s.id}" onclick="BT.emitter.toggleService(${s.id}, ${s.preco})" style="background:var(--sidebar); border:1px solid var(--border); padding:15px; border-radius:15px; margin-bottom:10px; display:flex; align-items:center; gap:15px;">
+                    <div class="item-list-mobile" id="m-serv-${s.id}" onclick="BT.emitter.toggleService(${s.id}, ${s.current_price})" style="background:var(--sidebar); border:1px solid var(--border); padding:15px; border-radius:15px; margin-bottom:10px; display:flex; align-items:center; gap:15px;">
                         <span style="font-size:24px;">${s.icone}</span>
                         <div style="flex:1;">
                             <b style="display:block; font-size:14px;">${s.nome}</b>
-                            <span style="font-size:12px; color:var(--secondary); font-weight:800;">R$ ${parseFloat(s.preco).toFixed(2)}</span>
+                            <span style="font-size:12px; color:var(--secondary); font-weight:800;">
+                                ${s.is_promo_today ? `<small style="text-decoration:line-through; opacity:0.5; margin-right:5px;">R$ ${parseFloat(s.preco).toFixed(2)}</small>` : ''}
+                                R$ ${parseFloat(s.current_price).toFixed(2)}
+                            </span>
                         </div>
                         <i class="fa-solid fa-circle-check check-icon" style="color:var(--success); display:none;"></i>
                     </div>
@@ -114,6 +117,9 @@ BT.emitter = {
         const btn = document.getElementById('btnConfirmarMobile');
         btn.disabled = true; btn.innerText = "GERANDO SENHA...";
 
+        // [v3.7.8] Prioriza o UUID da Fidelidade para garantir acúmulo de pontos
+        const identityUuid = localStorage.getItem('bt_loyalty_uuid') || this.deviceUuid;
+
         try {
             const res = await fetch('../api/senhas.php', {
                 method: 'POST',
@@ -123,7 +129,7 @@ BT.emitter = {
                     operador_id: this.selectedBarberId,
                     valor_total: this.totalAmount,
                     servicos_adicionais: this.selectedServices,
-                    device_id: this.deviceUuid,
+                    device_id: identityUuid, // <--- IDENTIDADE UNIFICADA
                     t: this.currentToken,
                     tipo: 'NORMAL'
                 })

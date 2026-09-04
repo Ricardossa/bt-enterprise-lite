@@ -154,7 +154,7 @@ CREATE TABLE `configuracoes` (
   CONSTRAINT `fk_config_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=169751 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `configuracoes` (`id`, `tenant_id`, `chave`, `valor`, `tipo`, `descricao`, `editavel`, `label_cliente`, `updated_at`) VALUES ('140620', '30', 'master_url', 'http://api.brandaotech.com.br:8080/api/v1/sync.php', 'STRING', NULL, '1', 'Paciente', '2026-08-22 09:49:19');
+INSERT INTO `configuracoes` (`id`, `tenant_id`, `chave`, `valor`, `tipo`, `descricao`, `editavel`, `label_cliente`, `updated_at`) VALUES ('140620', '30', 'master_url', 'http://api.brandaotech.com.br/api/v1/sync.php', 'STRING', NULL, '1', 'Paciente', '2026-08-22 09:49:19');
 INSERT INTO `configuracoes` (`id`, `tenant_id`, `chave`, `valor`, `tipo`, `descricao`, `editavel`, `label_cliente`, `updated_at`) VALUES ('140621', '30', 'uuid', '5579fd18-b48e-473e-a6e1-fb3cf1335700', 'STRING', NULL, '1', 'Paciente', '2026-08-22 09:49:19');
 INSERT INTO `configuracoes` (`id`, `tenant_id`, `chave`, `valor`, `tipo`, `descricao`, `editavel`, `label_cliente`, `updated_at`) VALUES ('140622', '30', 'token', '1C3E5CE9B707A09D1A80A33D87C1BF30A5F7D05F68D10E628365A99A52AEF125', 'STRING', NULL, '1', 'Paciente', '2026-08-22 09:49:19');
 INSERT INTO `configuracoes` (`id`, `tenant_id`, `chave`, `valor`, `tipo`, `descricao`, `editavel`, `label_cliente`, `updated_at`) VALUES ('145843', '30', 'app_name', 'BT Queue Enterprise', 'STRING', 'Nome da aplicação local', '1', 'Paciente', '2026-08-22 10:03:43');

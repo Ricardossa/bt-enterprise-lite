@@ -137,6 +137,8 @@ CREATE TABLE IF NOT EXISTS agenda_regras (
     liberacao_dia_semana INT,
     liberacao_hora_inicio TIME DEFAULT '00:00:00',
     liberacao_hora_fim TIME DEFAULT '23:59:59',
+    pausa_inicio TIME NULL,
+    pausa_fim TIME NULL,
     ativo TINYINT(1) DEFAULT 1,
     CONSTRAINT fk_agenda_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     CONSTRAINT fk_agenda_op FOREIGN KEY (operador_id) REFERENCES operadores(id) ON DELETE CASCADE

@@ -20,25 +20,32 @@ try {
 } catch (Exception $e) {}
 
 $empresa = $config['empresa'] ?? 'Barbearia';
-$logoUrl = !empty($config['promo_logo']) ? '../' . $config['promo_logo'] : '../assets/img/logo-placeholder.png';
+
+// [v3.1.3] LÃ³gica de Logo DinÃ¢mica SaaS (Garante que nÃ£o puxe a da Lite)
+$logoUrl = $config['logo_url'] ?? $config['promo_logo'] ?? '';
+if (empty($logoUrl) || (!str_starts_with($logoUrl, 'http') && !file_exists(__DIR__ . '/../' . $logoUrl))) {
+    $logoUrl = '../assets/img/logo-placeholder.png';
+} else {
+    $logoUrl = '../' . ltrim($logoUrl, '/');
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover, maximum-scale=1">
     <title>Fidelidade - <?= htmlspecialchars($empresa) ?></title>
-    <link rel="stylesheet" href="../live_premium/assets/css/premium.css">
+    <link rel="stylesheet" href="../live_premium/assets/css/premium.css?v=2.1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <style>
-        .loyalty-points-box { background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); border-radius: 30px; padding: 40px 20px; text-align: center; margin-bottom: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
-        .points-number { font-size: 80px; font-weight: 900; color: #fff; line-height: 1; }
-        .points-label { font-size: 14px; font-weight: 800; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 2px; margin-top: 10px; }
+        .loyalty-points-box { background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); border-radius: 30px; padding: 25px 15px; text-align: center; margin-bottom: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .points-number { font-size: 60px; font-weight: 900; color: #fff; line-height: 1; }
+        .points-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; }
 
-        .form-profile { background: var(--card); border-radius: 25px; padding: 30px; border: 1px solid var(--border); }
-        .form-profile label { display: block; font-size: 12px; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; font-weight: bold; }
-        .form-profile .form-control { background: var(--sidebar); border: 1px solid var(--border); color: #fff; padding: 15px; border-radius: 12px; width: 100%; margin-bottom: 20px; box-sizing: border-box; }
+        .form-profile { background: var(--card); border-radius: 25px; padding: 20px; border: 1px solid var(--border); }
+        .form-profile label { display: block; font-size: 11px; color: var(--text3); margin-bottom: 6px; text-transform: uppercase; font-weight: bold; }
+        .form-profile .form-control { background: var(--sidebar); border: 1px solid var(--border); color: #fff; padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 15px; box-sizing: border-box; }
 
         .reward-card { background: rgba(255,255,255,0.03); border: 1px dashed var(--border); border-radius: 20px; padding: 20px; display: flex; align-items: center; gap: 15px; }
         .reward-icon { width: 50px; height: 50px; background: rgba(24, 201, 100, 0.1); color: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
@@ -80,6 +87,12 @@ $logoUrl = !empty($config['promo_logo']) ? '../' . $config['promo_logo'] : '../a
                     CRIAR MEU PERFIL DIGITAL
                 </button>
 
+                <div style="text-align:center; margin-top:20px;">
+                    <button onclick="Loyalty.goService()" style="background:transparent; border:1px solid var(--border); color:var(--text3); padding:15px; width:100%; border-radius:12px; font-weight:bold; cursor:pointer;">
+                        PULAR E TIRAR SENHA SEM CADASTRO
+                    </button>
+                </div>
+
                 <div style="text-align:center; margin-top:25px;">
                     <p style="font-size:12px; color:var(--text3);">Já possui cadastro mas trocou de celular?</p>
                     <button onclick="Loyalty.showRecovery()" style="background:transparent; border:none; color:var(--secondary); font-weight:bold; font-size:13px; text-decoration:underline; cursor:pointer;">
@@ -96,6 +109,16 @@ $logoUrl = !empty($config['promo_logo']) ? '../' . $config['promo_logo'] : '../a
                 <div class="points-label">Pontos Acumulados</div>
             </section>
 
+            <!-- BANNER DE CHECK-IN (v3.0: Exibido apenas se houver agendamento hoje) -->
+            <div id="checkin-banner" class="hidden animate__animated animate__pulse animate__infinite" style="background: rgba(255, 193, 7, 0.1); border: 2px solid var(--warning); border-radius: 20px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                <div style="font-size: 40px; margin-bottom: 10px;">📍</div>
+                <h3 style="color: var(--warning); margin: 0 0 5px 0; font-weight: 900;">VOCÊ CHEGOU!</h3>
+                <p style="color: var(--text2); font-size: 14px; margin-bottom: 20px;">Vimos que você tem um horário hoje às <b id="checkin-hora">--:--</b>.</p>
+                <button onclick="Loyalty.doCheckin()" id="btn-do-checkin" class="bt-button" style="background: var(--warning); color: #000; font-weight: 900; width: 100%; padding: 15px; border-radius: 12px; border: none; cursor: pointer;">
+                    CONFIRMAR MINHA CHEGADA
+                </button>
+            </div>
+
             <section class="premium-card" style="margin-bottom:25px;">
                 <h3 style="font-size:14px; margin-bottom:15px; color:var(--text2); text-transform:uppercase;">🎁 Sua Próxima Recompensa</h3>
                 <div class="reward-card">
@@ -104,6 +127,13 @@ $logoUrl = !empty($config['promo_logo']) ? '../' . $config['promo_logo'] : '../a
                         <b style="display:block; color:#fff;" id="reward-name">Carregando prêmio...</b>
                         <small style="color:var(--text3);" id="reward-rules">Complete 10 pontos para ganhar.</small>
                     </div>
+                </div>
+            </section>
+
+            <section class="premium-card" id="clube-section" style="margin-bottom:25px;">
+                <h3 style="font-size:14px; margin-bottom:15px; color:var(--warning); text-transform:uppercase;">👑 Clube de Vantagens</h3>
+                <div id="container-planos" style="display:flex; flex-direction:column; gap:10px;">
+                    <p style="font-size:12px; color:var(--text3);">Carregando planos disponíveis...</p>
                 </div>
             </section>
 
@@ -140,10 +170,10 @@ $logoUrl = !empty($config['promo_logo']) ? '../' . $config['promo_logo'] : '../a
 
     <footer class="footer-signature">
         <p>Identidade Protegida por</p>
-        <img src="http://api.brandaotech.com.br:8080/uploads/logo/logo.png" alt="BT">
+        <img src="https://api.brandaotech.com.br/uploads/logo/logo.png" alt="BT">
     </footer>
 </div>
 
-<script src="assets/js/loyalty.js?v=1.0.0"></script>
+<script src="assets/js/loyalty.js?v=3.1.2"></script>
 </body>
 </html>

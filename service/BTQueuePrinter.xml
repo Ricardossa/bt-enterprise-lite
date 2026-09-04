@@ -1,0 +1,11 @@
+<service>
+  <id>BTQueuePrinter</id>
+  <name>BT Queue - Print Bridge</name>
+  <description>Motor de comunicação com a impressora Bematech (Porta 8001)</description>
+  <executable>%BASE%\..\runtime\php\php.exe</executable>
+  <arguments>-S 0.0.0.0:8001 "%BASE%\..\print_bridge.php"</arguments>
+  <workingdirectory>%BASE%\..</workingdirectory>
+  <log mode="roll"></log>
+  <onfailure action="restart" delay="10 sec"/>
+  <stopparentprocessfirst>true</stopparentprocessfirst>
+</service>

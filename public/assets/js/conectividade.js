@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </head>
             <body>
                 <div class="placa">
-                    <img src="http://api.brandaotech.com.br:8080/uploads/logo/logo.png" class="logo-bt">
+                    <img src="https://api.brandaotech.com.br/uploads/logo/logo.png" class="logo-bt">
                     <h1>RETIRE SUA SENHA</h1>
                     <p>Escaneie o código abaixo para escolher o serviço e retirar sua senha diretamente no seu celular.</p>
                     <div class="qr-box"><img src="${qrImg.src}"></div>

@@ -39,9 +39,9 @@ include __DIR__ . '/includes/header.php';
     </div>
 </main>
 
-<script src="assets/js/api.js?v=4.5"></script>
-<script src="assets/js/config.js?v=4.5"></script>
-<script src="assets/js/modal.js?v=4.5"></script>
-<script src="assets/js/promocoes.js?v=4.5"></script>
+<script src="assets/js/api.js?v=4.6"></script>
+<script src="assets/js/config.js?v=4.6"></script>
+<script src="assets/js/modal.js?v=4.6"></script>
+<script src="assets/js/promocoes.js?v=4.6"></script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

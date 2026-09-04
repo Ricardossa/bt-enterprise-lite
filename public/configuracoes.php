@@ -57,17 +57,6 @@ include __DIR__ . '/includes/header.php';
                     <small style="color:var(--text2); font-size:11px;">Este nome será usado no painel do operador e relatórios.</small>
                 </div>
 
-                <div class="form-group" style="margin-top:20px;">
-                    <label>Logotipo Oficial (PNG/JPG)</label>
-                    <div class="branding-box">
-                        <img id="empresaLogoPreview" src="assets/img/logo-placeholder.png" class="branding-logo-preview" onerror="this.src='uploads/logo.png'">
-                        <input type="file" id="logo" class="form-control" accept=".png,.jpg,.jpeg">
-                <small class="text-muted" style="display:block; margin-top:5px; font-size:10px;">
-                    <b>Recomendado:</b> 540 × 360 px (3:2), fundo transparente. Formatos: PNG ou WebP.
-                </small>
-                        <small style="color:var(--text2); display:block; mt:10px;">Recomendado: 500x500px fundo transparente.</small>
-                    </div>
-                </div>
             </section>
 
             <section class="config-card">

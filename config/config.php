@@ -6,7 +6,7 @@ return [
 
     'app' => [
         'name' => 'BT Queue Enterprise',
-        'version' => '4.0.0',
+        'version' => '7.7.0',
         'timezone' => 'America/Bahia',
         'debug' => false
     ],
@@ -26,7 +26,7 @@ return [
 
     'sync' => [
         'enabled' => true,
-        'endpoint' => 'http://api.brandaotech.com.br:8080',
+        'endpoint' => 'http://api.brandaotech.com.br',
         'token' => 'LITE-TOKEN-2026' // Substituir pelo token da VPS
     ],
 

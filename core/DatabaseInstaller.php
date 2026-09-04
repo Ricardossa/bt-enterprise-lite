@@ -54,7 +54,7 @@ final class DatabaseInstaller
                 "INSERT IGNORE INTO configuracoes (chave, valor, tipo, descricao) VALUES (?, ?, 'STRING', ?)",
                 [
                     'master_url',
-                    'http://api.brandaotech.com.br:8080/api/v1/sync.php',
+                    'http://api.brandaotech.com.br/api/v1/sync.php',
                     'URL de sincronização com a Platform Master'
                 ]
             );

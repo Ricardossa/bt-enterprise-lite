@@ -231,6 +231,14 @@ $pageTitle = 'Operador de Bolso';
             </div>
         </section>
 
+        <!-- NOVO: HISTÓRICO DE PAGAMENTOS (v3.1.0) -->
+        <section id="view-payments" class="next-list hidden animate__animated animate__fadeInUp" style="margin-top:20px; border-color:var(--success);">
+            <h3 style="color:var(--success);"><i class="fa-solid fa-money-bill-check"></i> Meus Pagamentos</h3>
+            <div id="list-payments">
+                <p style="color: var(--text3); text-align: center; font-size: 13px; padding: 15px;">Sem registros.</p>
+            </div>
+        </section>
+
         <!-- NOVO: HISTÓRICO DE CHAMADAS (v2.7.6) -->
         <section class="next-list animate__animated animate__fadeInUp" style="margin-top:20px; border-color:rgba(255,255,255,0.02);">
             <h3 style="opacity:0.6; font-size:11px;"><i class="fa-solid fa-history"></i> Chamadas Recentes</h3>
@@ -241,7 +249,7 @@ $pageTitle = 'Operador de Bolso';
 
         <footer class="bt-footer">
             <p style="font-size: 10px; font-weight: 800; letter-spacing: 2px; margin-bottom: 5px;">POWERED BY</p>
-            <img src="http://api.brandaotech.com.br:8080/uploads/logo/logo.png" alt="BT">
+            <img src="https://api.brandaotech.com.br/uploads/logo/logo.png" alt="BT">
         </footer>
     </div>
 
@@ -453,7 +461,10 @@ $pageTitle = 'Operador de Bolso';
                                                     ${a.whatsapp ? `<a href="https://wa.me/55${a.whatsapp.replace(/\D/g, '')}" target="_blank" style="color:#25D366; font-size:16px;"><i class="fa-brands fa-whatsapp"></i></a>` : ''}
                                                 </div>
                                             </div>
-                                            <span style="font-size:11px; color:var(--text3);">${a.servico_nome || 'Atendimento'}</span>
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:3px;">
+                                                <span style="font-size:11px; color:var(--text3);">${a.servico_nome || 'Atendimento'}</span>
+                                                ${a.barbeiro_nome ? `<span style="font-size:10px; color:var(--secondary); font-weight:bold; text-transform:uppercase;">Prof: ${a.barbeiro_nome.split(' ')[0]}</span>` : ''}
+                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -469,8 +480,9 @@ $pageTitle = 'Operador de Bolso';
                             document.getElementById('current-name').innerText = d.chamando.nome_cliente || 'Cliente de Porta';
 
                             // v1.3.1: Exibe o nome do serviço e preço
+                            const isVip = (d.chamando.pagamento_status === 'ISENTO');
                             const servicoNome = d.chamando.servico_nome || '---';
-                            document.getElementById('current-servico').innerText = servicoNome;
+                            document.getElementById('current-servico').innerHTML = servicoNome + (isVip ? ' <span style="color:var(--warning); font-weight:900;">[👑 VIP]</span>' : '');
 
                             // Controle do botão de pagamento
                             const btnPaid = document.getElementById('btnMarkPaid');
@@ -495,8 +507,9 @@ $pageTitle = 'Operador de Bolso';
                             d.fila.forEach(f => {
                                 if (items.length < 10) {
                                     const isPaid = (f.pagamento_status === 'PAGO');
+                                    const isVip = (f.pagamento_status === 'ISENTO'); // [v3.0.1] Detecção de Assinante
                                     const isPresent = (f.status === 'PRESENTE');
-                                    const isAgd = f.is_agendamento;
+                                    const isAgd = (f.codigo.startsWith('AGD') || f.tipo_atendimento === 'AGENDAMENTO');
 
                                     items.push({
                                         codigo: f.codigo,
@@ -505,6 +518,7 @@ $pageTitle = 'Operador de Bolso';
                                         valor: parseFloat(f.valor_total).toFixed(2),
                                         statusLabel: isPresent ? 'JÁ CHEGOU ✅' : 'EM ESPERA',
                                         badgePago: isPaid ? '<span class="badge" style="background:rgba(24, 201, 100, 0.1); color:var(--success); font-size:9px; margin-left:5px;">PAGO</span>' : '',
+                                        badgeVip: isVip ? '<span class="badge" style="background:rgba(245, 166, 35, 0.1); color:var(--warning); font-size:9px; margin-left:5px;"><i class="fa-solid fa-crown"></i> VIP</span>' : '',
                                         badgeAgd: isAgd ? '<span class="badge" style="background:rgba(245, 166, 35, 0.1); color:var(--warning); font-size:9px; margin-left:5px;">AGENDA</span>' : '',
                                         whatsapp: f.whatsapp
                                     });
@@ -517,7 +531,7 @@ $pageTitle = 'Operador de Bolso';
                                 <div class="next-item" style="padding:15px 0;">
                                     <span class="idx">${i+1}º</span>
                                     <div class="info">
-                                        <b style="font-size:15px;">${t.nome} ${t.badgePago}${t.badgeAgd}</b>
+                                        <b style="font-size:15px;">${t.nome} ${t.badgePago}${t.badgeVip}${t.badgeAgd}</b>
                                         <div style="font-size:12px; color:var(--text2); margin-top:4px;">
                                             ${t.codigo} · <span style="color:var(--secondary); font-weight:bold;">${t.servicos}</span>
                                         </div>
@@ -535,20 +549,42 @@ $pageTitle = 'Operador de Bolso';
                             list.innerHTML = '<p style="color: var(--text3); text-align: center; font-size: 13px; padding: 20px;">Ninguém na fila.</p>';
                         }
 
-                        // 3. Histórico de Chamadas (v2.7.7: Blindado)
+                        // 3. Histórico de Chamadas (v3.0.2: Tag VIP)
                         const historyList = document.getElementById('list-history');
                         if (historyList && d.historico && d.historico.length > 0) {
                             historyList.innerHTML = d.historico.map(h => {
                                 const time = (h.chamada_em && h.chamada_em.includes(' '))
                                             ? h.chamada_em.split(' ')[1].substring(0,5)
                                             : '--:--';
+                                const isVip = (h.pagamento_status === 'ISENTO');
                                 return `
-                                    <div style="display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.02);">
-                                        <span>${h.senha}</span>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.02);">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <span>${h.senha}</span>
+                                            ${isVip ? '<span class="badge" style="background:var(--warning); color:#000; font-size:9px; padding:2px 6px;">👑 VIP</span>' : ''}
+                                        </div>
                                         <span style="color:var(--text3);">${time}</span>
                                     </div>
                                 `;
                             }).join('');
+                        }
+
+                        // 4. Histórico de Pagamentos (v3.1.0)
+                        const paymentList = document.getElementById('list-payments');
+                        const paymentView = document.getElementById('view-payments');
+                        if (paymentList && d.pagamentos && d.pagamentos.length > 0) {
+                            paymentView.classList.remove('hidden');
+                            paymentList.innerHTML = d.pagamentos.map(p => `
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.02);">
+                                    <div>
+                                        <b style="color:var(--success); display:block;">R$ ${parseFloat(p.valor).toFixed(2)}</b>
+                                        <small style="color:var(--text3); font-size:10px;">REF: ${p.data_inicio.split('-').reverse().join('/')} a ${p.data_fim.split('-').reverse().join('/')}</small>
+                                    </div>
+                                    <span style="color:var(--text3); font-size:11px;">${p.data_pagamento.split(' ')[0].split('-').reverse().join('/')}</span>
+                                </div>
+                            `).join('');
+                        } else {
+                            paymentView.classList.add('hidden');
                         }
                     }
                 } catch (e) {}

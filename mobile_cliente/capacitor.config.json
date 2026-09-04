@@ -1,0 +1,10 @@
+{
+  "appId": "br.com.brandaotech.client",
+  "appName": "BT Client Pro",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "http",
+    "allowMixedContent": true
+  }
+}

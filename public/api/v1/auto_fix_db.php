@@ -183,6 +183,18 @@ try {
             'status' => "VARCHAR(20) DEFAULT 'ATIVO'",
             'updated_at' => 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'
         ],
+        'servicos' => [
+            'tenant_id' => 'INTEGER DEFAULT 1',
+            'promo_ativa' => 'TINYINT(1) DEFAULT 0',
+            'promo_desconto' => 'DECIMAL(5,2) DEFAULT 20.00',
+            'promo_dias' => 'TEXT NULL'
+        ],
+        'guiches' => [
+            'tenant_id' => 'INTEGER DEFAULT 1'
+        ],
+        'promocoes' => [
+            'tenant_id' => 'INTEGER DEFAULT 1'
+        ],
         'senhas' => [
             'tenant_id' => 'INTEGER DEFAULT 1',
             'cliente_id' => 'INTEGER DEFAULT 0',
@@ -190,6 +202,7 @@ try {
             'atendente_nome' => 'TEXT',
             'tipo_atendimento' => "TEXT DEFAULT 'NORMAL'",
             'valor_total' => 'DECIMAL(10,2) DEFAULT 0.00',
+            'is_promo' => 'TINYINT(1) DEFAULT 0', // [LITE v4.2.0]
             'pagamento_status' => "VARCHAR(20) DEFAULT 'PENDENTE'",
             'data_agendamento' => 'DATETIME',
             'emitida_em' => 'DATETIME',
@@ -198,20 +211,6 @@ try {
             'pagamento_id' => 'VARCHAR(100)',
             'pix_qr_code' => 'TEXT',
             'pix_qr_base64' => 'LONGTEXT'
-        ],
-        'operadores' => [
-            'tenant_id' => 'INTEGER DEFAULT 1',
-            'prefixo' => 'VARCHAR(5)',
-            'status' => "VARCHAR(20) DEFAULT 'ONLINE'"
-        ],
-        'servicos' => [
-            'tenant_id' => 'INTEGER DEFAULT 1'
-        ],
-        'guiches' => [
-            'tenant_id' => 'INTEGER DEFAULT 1'
-        ],
-        'promocoes' => [
-            'tenant_id' => 'INTEGER DEFAULT 1'
         ],
         'configuracoes' => [
             'tenant_id' => 'INTEGER DEFAULT 1',
@@ -227,7 +226,13 @@ try {
             'operador_id' => 'INTEGER DEFAULT 0',
             'liberacao_dia_semana' => 'INTEGER NULL',
             'liberacao_hora_inicio' => "TEXT DEFAULT '00:00'",
-            'liberacao_hora_fim' => "TEXT DEFAULT '23:59'"
+            'liberacao_hora_fim' => "TEXT DEFAULT '23:59'",
+            'pausa_inicio' => 'TEXT NULL',
+            'pausa_fim' => 'TEXT NULL'
+        ],
+        'agenda_bloqueios' => [
+            'tenant_id' => 'INTEGER DEFAULT 1',
+            'operador_id' => 'INTEGER NOT NULL DEFAULT 0'
         ],
         'system_info' => [
             'tenant_id' => 'INTEGER DEFAULT 1',
@@ -245,6 +250,13 @@ try {
         ]
     ];
 
+    // [LITE v3.6.1] Fix for clube_assinaturas nullable dates
+    try {
+        Database::execute("ALTER TABLE clube_assinaturas MODIFY data_inicio DATE NULL DEFAULT NULL, MODIFY data_fim DATE NULL DEFAULT NULL");
+    } catch (Exception $e) {
+        // Table might not exist yet
+    }
+
     foreach ($migrations as $table => $columns) {
         // [LITE v3.3.4] Tenta buscar colunas de forma mais robusta (SHOW COLUMNS)
         try {
@@ -260,10 +272,7 @@ try {
             if (!in_array($col, $existingCols)) {
                 try {
                     Database::execute("ALTER TABLE $table ADD COLUMN $col $type");
-                    echo "✅ Coluna [$col] adicionada em [$table]<br>";
-                } catch (Exception $e) {
-                    echo "❌ Erro ao adicionar [$col] em [$table]: " . $e->getMessage() . "<br>";
-                }
+                } catch (Exception $e) {}
             }
         }
     }

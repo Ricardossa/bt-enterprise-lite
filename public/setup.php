@@ -348,7 +348,7 @@ $pageTitle = 'Setup Wizard - BT Queue Enterprise';
                 <div style="display:flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
                     <div class="form-group" style="flex:1; min-width:220px;">
                         <label>URL da Master</label>
-                        <input type="text" name="master_url" class="form-control" value="http://api.brandaotech.com.br:8080/api/v1/sync.php">
+                        <input type="text" name="master_url" class="form-control" value="http://api.brandaotech.com.br/api/v1/sync.php">
                     </div>
                     <div class="form-group" style="flex:1; min-width:220px;">
                         <label>PIN de Ativação</label>

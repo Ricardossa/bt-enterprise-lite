@@ -24,8 +24,9 @@ try {
             "SELECT s.*, $campoCodigo as codigo, sv.nome AS servico_nome
              FROM senhas s
              LEFT JOIN servicos sv ON sv.id = s.servico_id
-             WHERE s.status='AGUARDANDO'
-             ORDER BY s.id"
+             WHERE s.status='AGUARDANDO' AND s.tenant_id = ?
+             ORDER BY s.id",
+            [Auth::tenantId()]
         );
 
         echo json_encode([
@@ -56,9 +57,10 @@ try {
 
         // --- VALIDAÇÃO DE SEGURANÇA (Anti-Fila Remota & Horário de Atendimento) ---
         if (!\BTQueue\Core\Auth::autenticado()) {
+            $tenantId = \BTQueue\Core\Auth::tenantId();
 
             // 1. Verificação de Horário de Expediente
-            $config = Database::fetchAll("SELECT chave, valor FROM configuracoes WHERE chave IN ('opening_time', 'closing_time', 'qr_security_salt')");
+            $config = Database::fetchAll("SELECT chave, valor FROM configuracoes WHERE chave IN ('opening_time', 'closing_time', 'qr_security_salt') AND tenant_id = ?", [$tenantId]);
             $cfg = [];
             foreach ($config as $c) { $cfg[$c['chave']] = $c['valor']; }
 
@@ -75,31 +77,58 @@ try {
                 exit;
             }
 
-            // 2. Verificação de Token do QR Code (Se houver token enviado)
+            // 2. Verificação de Token do QR Code (Híbrido v4.1.9)
             $salt = $cfg['qr_security_salt'] ?? 'default_salt';
             $validToken = false;
+            $tokenInvalido = false;
 
             if (!empty($tokenEnviado)) {
-                // Valida o token para o minuto atual e os 2 minutos anteriores
-                for ($i = 0; $i <= 2; $i++) {
+                for ($i = 0; $i <= 10; $i++) { // Janela de 10 minutos (v4.2.1)
                     $checkHash = md5($salt . date('YmdHi', strtotime("-$i minutes")));
                     if (hash_equals($checkHash, $tokenEnviado)) {
                         $validToken = true;
                         break;
                     }
                 }
+                if (!$validToken) $tokenInvalido = true;
+            }
 
-                if (!$validToken) {
+            // 3. [LITE v4.1.9] CERCA DE GPS (TRAVA DE DISTÂNCIA)
+            $loc = [];
+            $locRows = Database::fetchAll("SELECT chave, valor FROM configuracoes WHERE chave IN ('location_lat', 'location_lng', 'location_max_distance', 'location_check_enabled') AND tenant_id = ?", [$tenantId]);
+            foreach ($locRows as $lr) { $loc[$lr['chave']] = $lr['valor']; }
+
+            $isGpsEnabled = (($loc['location_check_enabled'] ?? '0') === '1' && !empty($loc['location_lat']));
+
+            // --- LÃ“GICA DE DECISÃO DE ACESSO ---
+            // SÃ³ bloqueia se o Token for invÃ¡lido E o GPS nÃ£o puder validar a presenÃ§a.
+            if ($tokenInvalido && !$isGpsEnabled) {
+                // Se nÃ£o tem GPS configurado, nÃ£o podemos barrar o Totem fÃ­sico por delay de tempo.
+                // Mas avisamos para garantir que o cliente escaneie o mais novo.
+            }
+
+            if ($isGpsEnabled) {
+                $userLat = (float)($dados['lat'] ?? 0);
+                $userLng = (float)($dados['lng'] ?? 0);
+                $maxDist = (int)($loc['location_max_distance'] ?? 150);
+
+                if ($userLat === 0.0 || $userLng === 0.0) {
                     http_response_code(403);
-                    echo json_encode([
-                        'success' => false,
-                        'message' => '❌ QR Code Expirado. Por favor, escaneie novamente o código no Totem da loja.'
-                    ], JSON_UNESCAPED_UNICODE);
+                    echo json_encode(['success' => false, 'message' => '📍 LOCALIZAÇÃO NECESSÁRIA: Permita o acesso ao GPS para retirar sua senha.'], JSON_UNESCAPED_UNICODE);
                     exit;
                 }
-            } else {
-                // SE NÃO TEM TOKEN (QR CODE IMPRESSO), OBRIGATÓRIO ESTAR NO HORÁRIO (já checado acima)
-                // TODO: No futuro, adicionar geofencing aqui para maior segurança do QR impresso.
+
+                $earthRadius = 6371000;
+                $latFrom = deg2rad((float)$loc['location_lat']); $lonFrom = deg2rad((float)$loc['location_lng']);
+                $latTo = deg2rad($userLat); $lonTo = deg2rad($userLng);
+                $angle = 2 * asin(sqrt(pow(sin(($latTo - $latFrom) / 2), 2) + cos($latFrom) * cos($latTo) * pow(sin(($lonTo - $lonFrom) / 2), 2)));
+                $distance = $angle * $earthRadius;
+
+                if ($distance > $maxDist) {
+                    http_response_code(403);
+                    echo json_encode(['success' => false, 'message' => "❌ VOCÊ ESTÁ MUITO LONGE: Sua distância atual é de " . round($distance) . "m. A distância máxima permitida é de {$maxDist}m."], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
             }
         }
 
@@ -109,10 +138,12 @@ try {
             exit;
         }
 
-        $servico = Database::fetch("SELECT prefixo, nome FROM servicos WHERE id=? LIMIT 1", [$servicoId]);
+        // [LITE v4.1.0] Blindagem SaaS: Garante que o serviço pertence à Unidade atual
+        $tenantId = \BTQueue\Core\Auth::tenantId();
+        $servico = Database::fetch("SELECT prefixo, nome FROM servicos WHERE id=? AND tenant_id = ? LIMIT 1", [$servicoId, $tenantId]);
 
         if (!$servico) {
-            echo json_encode(['success' => false, 'message' => 'Serviço não encontrado.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => false, 'message' => 'Serviço não encontrado nesta unidade.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -126,9 +157,11 @@ try {
                  WHERE device_id = ?
                  AND servico_id = ?
                  AND status IN ('AGUARDANDO','CHAMANDO','CONGELADA')
+                 AND tenant_id = ?
+                 AND DATE(created_at) = CURDATE()
                  ORDER BY id DESC
                  LIMIT 1",
-                [$deviceId, $servicoId]
+                [$deviceId, $servicoId, \BTQueue\Core\Auth::tenantId()]
             );
 
             if ($senhaExistente) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../../bootstrap.php';
 use BTQueue\Core\Auth;
 use BTQueue\Core\ClientService;
+use BTQueue\Core\Database;
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -30,13 +31,36 @@ try {
         $saldo = $service->getSaldo((int)$cliente['id'], (int)$tenant['id']);
         $config = $service->getConfig((int)$tenant['id']);
 
+        // [v3.0.2] Busca por ID ou UUID (Garante detecção mesmo se o ID falhou na reserva)
+        $agendamento = Database::fetch(
+            "SELECT uuid, codigo, data_agendamento as hora, status
+             FROM senhas
+             WHERE (cliente_id = ? OR cliente_uuid = ?)
+             AND tenant_id = ? AND DATE(data_agendamento) = CURDATE()
+             AND status IN ('AGENDADO', 'PRESENTE', 'CHAMANDO') LIMIT 1",
+            [(int)$cliente['id'], $uuid, (int)$tenant['id']]
+        );
+
+        if ($agendamento) {
+            $agendamento['hora'] = date('H:i', strtotime($agendamento['hora']));
+        }
+
+        // [v2.5.2] Busca Logo e Nome da Unidade para o Branding do App
+        $unitLogo = Database::fetch("SELECT valor FROM configuracoes WHERE tenant_id = ? AND chave = 'logo_url' LIMIT 1", [(int)$tenant['id']])['valor'] ?? '';
+        $unitName = Database::fetch("SELECT valor FROM configuracoes WHERE tenant_id = ? AND chave = 'empresa' LIMIT 1", [(int)$tenant['id']])['valor'] ?? 'Barbearia';
+
         echo json_encode([
             'success' => true,
             'cliente' => $cliente,
+            'unit' => [
+                'nome' => $unitName,
+                'logo' => $unitLogo
+            ],
             'fidelidade' => [
                 'saldo' => $saldo,
                 'config' => $config
-            ]
+            ],
+            'agendamento' => $agendamento // Injetado para o Mobile
         ]);
         exit;
     }
@@ -69,6 +93,28 @@ try {
 
         $resultado = $service->registrar($input, (int)$tenant['id']);
         echo json_encode($resultado);
+        exit;
+    }
+
+    if ($method === 'PUT') {
+        Auth::protegerAPI('ADMIN');
+        $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $id = (int)($input['id'] ?? 0);
+        if ($id <= 0) throw new Exception("ID inválido.");
+
+        $ok = $service->atualizar($id, $input, (int)$tenant['id']);
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Cliente atualizado!' : 'Erro ao atualizar.']);
+        exit;
+    }
+
+    if ($method === 'DELETE') {
+        Auth::protegerAPI('ADMIN');
+        $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $id = (int)($input['id'] ?? 0);
+        if ($id <= 0) throw new Exception("ID inválido.");
+
+        $ok = $service->excluir($id, (int)$tenant['id']);
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Cliente removido!' : 'Erro ao excluir.']);
         exit;
     }
 

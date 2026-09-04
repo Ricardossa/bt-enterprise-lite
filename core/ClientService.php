@@ -35,7 +35,7 @@ final class ClientService
         $nome = strtoupper(trim($dados['nome'] ?? ''));
         $whatsapp = preg_replace('/\D/', '', $dados['whatsapp'] ?? '');
         $email = strtolower(trim($dados['email'] ?? ''));
-        $nascimento = $dados['data_nascimento'] ?? null;
+        $nascimento = !empty($dados['data_nascimento']) ? $dados['data_nascimento'] : null;
 
         if (empty($nome) || empty($whatsapp)) {
             throw new Exception("Nome e WhatsApp são obrigatórios para o perfil.");
@@ -59,13 +59,38 @@ final class ClientService
             [$uuid, $tenantId, $nome, $whatsapp, $email, $nascimento]
         );
 
-        $id = (int)Database::lastInsertId();
-
         return [
             'success' => true,
             'modo' => 'criado',
             'cliente' => $this->buscarPorUuid($uuid, $tenantId)
         ];
+    }
+
+    public function atualizar(int $id, array $dados, int $tenantId): bool
+    {
+        $nome = strtoupper(trim($dados['nome'] ?? ''));
+        $whatsapp = preg_replace('/\D/', '', $dados['whatsapp'] ?? '');
+        $email = strtolower(trim($dados['email'] ?? ''));
+        $nascimento = !empty($dados['data_nascimento']) ? $dados['data_nascimento'] : null;
+
+        if (empty($nome) || empty($whatsapp)) {
+            throw new Exception("Nome e WhatsApp são obrigatórios.");
+        }
+
+        return Database::execute(
+            "UPDATE clientes SET nome = ?, whatsapp = ?, email = ?, data_nascimento = ?
+             WHERE id = ? AND tenant_id = ?",
+            [$nome, $whatsapp, $email, $nascimento, $id, $tenantId]
+        );
+    }
+
+    public function excluir(int $id, int $tenantId): bool
+    {
+        // 1. Limpa histórico e saldo (Opcional - pode-se manter para auditoria)
+        Database::execute("DELETE FROM fidelidade_saldo WHERE cliente_id = ? AND tenant_id = ?", [$id, $tenantId]);
+
+        // 2. Remove o cliente
+        return Database::execute("DELETE FROM clientes WHERE id = ? AND tenant_id = ?", [$id, $tenantId]);
     }
 
     public function getSaldo(int $clienteId, int $tenantId): int

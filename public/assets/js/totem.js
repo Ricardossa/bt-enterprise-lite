@@ -76,10 +76,13 @@ BT.totem = {
             const json = await res.json();
             if (json.success) {
                 container.innerHTML = json.data.map(s => `
-                    <button class="totem-btn service-item" id="btn-service-${s.id}" style="border-color: ${s.cor || 'var(--border)'}; width:100%; height:180px;" onclick="BT.totem.toggleService(${s.id}, ${s.preco})">
+                    <button class="totem-btn service-item" id="btn-service-${s.id}" style="border-color: ${s.cor || 'var(--border)'}; width:100%; height:180px;" onclick="BT.totem.toggleService(${s.id}, ${s.current_price})">
                         <span>${s.icone || '📋'}</span>
                         <label style="cursor:pointer; font-size:20px;">${s.nome}</label>
-                        <b style="color:var(--success); font-size:18px;">R$ ${parseFloat(s.preco).toFixed(2)}</b>
+                        <b style="color:var(--success); font-size:18px;">
+                            ${s.is_promo_today ? `<small style="text-decoration:line-through; color:var(--text3); font-size:12px; margin-right:5px;">R$ ${parseFloat(s.preco).toFixed(2)}</small>` : ''}
+                            R$ ${parseFloat(s.current_price).toFixed(2)}
+                        </b>
                     </button>
                 `).join('');
             }
@@ -176,8 +179,8 @@ BT.totem = {
         // Fallback final
         if (!base) base = window.location.origin;
 
-        // Garante que a barra final esteja correta e aponta para o mobile
-        let pathMobile = "live_premium/index.php"; // Removido o ?new=1 para preservar múltiplas senhas
+        // Garante que a barra final esteja correta e aponta para o FIDELIDADE (Página Oficial)
+        let pathMobile = "fidelidade/index.php";
         if (this.currentToken) {
             pathMobile += "?t=" + this.currentToken;
         }

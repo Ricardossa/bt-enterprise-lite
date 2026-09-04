@@ -247,23 +247,36 @@ $empresa = $config['empresa'] ?? 'Brandão Tech';
         state.operador_id = id;
         nextStep(2);
 
-        const res = await fetch(`api/v1/agenda.php?action=servicos_por_barbeiro&operador_id=${id}`);
+        // [v4.2.2] Busca serviÃ§os jÃ¡ considerando a data selecionada (se houver)
+        const dateParam = state.data ? `&data=${state.data}` : '';
+        const res = await fetch(`api/v1/agenda.php?action=servicos_por_barbeiro&operador_id=${id}${dateParam}`);
         const json = await res.json();
         const container = document.getElementById('lista-servicos');
-        container.innerHTML = json.data.map(s => `
-            <div class="item-list" onclick="toggleServico(${s.id}, ${s.preco}, this)">
+
+        container.innerHTML = json.data.map(s => {
+            const isPromo = s.is_promo_today;
+            const precoExibido = parseFloat(s.current_price).toFixed(2);
+            const precoAntigo = parseFloat(s.preco_original).toFixed(2);
+
+            return `
+            <div class="item-list" id="serv-${s.id}" onclick="toggleServico(${s.id}, this)" data-price="${s.current_price}">
                 <div style="font-size:20px;">${s.icone}</div>
                 <div style="flex:1;">
                     <b style="display:block;">${s.nome}</b>
-                    <span class="badge-price">R$ ${parseFloat(s.preco).toFixed(2)}</span>
+                    <span class="badge-price">
+                        ${isPromo ? `<small style="text-decoration:line-through; opacity:0.5; margin-right:5px;">R$ ${precoAntigo}</small>` : ''}
+                        R$ ${precoExibido}
+                    </span>
                 </div>
                 <i class="fa-solid fa-check-circle check-icon hidden" style="color:#18C964;"></i>
             </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
-    function toggleServico(id, preco, el) {
+    function toggleServico(id, el) {
         const nome = el.querySelector('b').innerText;
+        const preco = parseFloat(el.getAttribute('data-price'));
         const idx = state.servicos.indexOf(id);
 
         if (idx > -1) {
@@ -333,8 +346,42 @@ $empresa = $config['empresa'] ?? 'Brandão Tech';
         }
     }
 
-    document.getElementById('data-agenda').onchange = (e) => {
+    document.getElementById('data-agenda').onchange = async (e) => {
         state.data = e.target.value;
+
+        // [v4.2.2] Recalcula preÃ§os ao mudar a data (Sincronia Diamond)
+        const res = await fetch(`api/v1/agenda.php?action=servicos_por_barbeiro&operador_id=${state.operador_id}&data=${state.data}`);
+        const json = await res.json();
+
+        if (json.success) {
+            state.total = 0;
+            state.servicos_nomes = [];
+
+            // Atualiza os preÃ§os nos elementos visuais e no state
+            json.data.forEach(s => {
+                const el = document.getElementById(`serv-${s.id}`);
+                if (el) {
+                    const priceBadge = el.querySelector('.badge-price');
+                    const isPromo = s.is_promo_today;
+
+                    // [v4.2.2] Atualiza o atributo de preÃ§o para o toggle funcionar com o valor novo
+                    el.setAttribute('data-price', s.current_price);
+
+                    priceBadge.innerHTML = `
+                        ${isPromo ? `<small style="text-decoration:line-through; opacity:0.5; margin-right:5px;">R$ ${parseFloat(s.preco_original).toFixed(2)}</small>` : ''}
+                        R$ ${parseFloat(s.current_price).toFixed(2)}
+                    `;
+
+                    // Se o serviÃ§o estiver selecionado, atualiza o total no state
+                    if (state.servicos.includes(s.id)) {
+                        state.total += parseFloat(s.current_price);
+                        state.servicos_nomes.push(s.nome);
+                    }
+                }
+            });
+            document.getElementById('display-total').innerText = "R$ " + state.total.toFixed(2);
+        }
+
         loadSlots();
     };
 
@@ -499,6 +546,15 @@ $empresa = $config['empresa'] ?? 'Brandão Tech';
 
     loadBarbeiros();
     checkLoyalty();
+
+    // [v3.8.0] Auto-seleção de barbeiro vindo do App
+    const urlParams = new URLSearchParams(window.location.search);
+    const barberId = urlParams.get('barber_id') || urlParams.get('operador_id');
+    if (barberId) {
+        setTimeout(() => {
+            selectBarbeiro(parseInt(barberId), "Selecionado");
+        }, 500);
+    }
 </script>
 
 </body>

@@ -22,6 +22,8 @@ try {
     $campoCodigo = in_array('codigo', $cols) ? 's.codigo' : 's.senha';
 
     // 1. Busca os dados VITAIS da senha primeiro (Query Simples para não falhar)
+    // [LITE v4.1.0] Blindagem SaaS: Exige que a senha pertença à Unidade atual
+    $tenantId = \BTQueue\Core\Auth::tenantId();
     $senha = Database::fetch("
         SELECT
             s.id,
@@ -30,9 +32,9 @@ try {
             s.guiche_id,
             s.servico_id
         FROM senhas s
-        WHERE s.cliente_uuid = ?
+        WHERE s.cliente_uuid = ? AND s.tenant_id = ?
         LIMIT 1
-    ", [$uuid]);
+    ", [$uuid, $tenantId]);
 
     if (!$senha) {
         echo json_encode(['success' => false, 'message' => 'Senha não encontrada.'], JSON_UNESCAPED_UNICODE);

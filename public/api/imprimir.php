@@ -18,8 +18,9 @@ try {
     $empresa = (string) ($dados['empresa'] ?? 'BT Queue');
     $data = date('d/m/Y H:i:s');
 
-    // 1. Obter nome da impressora das configurações
-    $cfg = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'printer_name' LIMIT 1");
+    // 1. Obter nome da impressora das configurações (Escopado por Unidade)
+    $tenantId = \BTQueue\Core\Auth::tenantId();
+    $cfg = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'printer_name' AND tenant_id = ? LIMIT 1", [$tenantId]);
     $printerName = $cfg ? $cfg['valor'] : 'BT_TICKET';
 
     // 2. Montar o conteúdo do Ticket (Texto Puro para Térmica)

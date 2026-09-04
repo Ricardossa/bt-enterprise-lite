@@ -28,11 +28,12 @@ if ($data['action'] === 'payment.updated') {
 
             if ($statusRes['success'] && $statusRes['status'] === 'approved') {
                 // Localiza a senha vinculada a este pagamento
-                $senha = Database::fetch("SELECT id, codigo, status FROM senhas WHERE pagamento_id = ? LIMIT 1", [$paymentId]);
+                // [LITE v4.1.0] Blindagem SaaS: Garante que a atualizaÃ§Ã£o respeite o tenant da senha
+                $senha = Database::fetch("SELECT id, codigo, status, tenant_id FROM senhas WHERE pagamento_id = ? LIMIT 1", [$paymentId]);
 
                 if ($senha && $senha['status'] === 'AGENDADO') {
-                    Database::execute("UPDATE senhas SET pagamento_status = 'PAGO', status = 'CONFIRMADO' WHERE id = ?", [$senha['id']]);
-                    Logger::info("Pagamento Aprovado: Senha {$senha['codigo']} confirmada automaticamente.");
+                    Database::execute("UPDATE senhas SET pagamento_status = 'PAGO', status = 'CONFIRMADO' WHERE id = ? AND tenant_id = ?", [$senha['id'], $senha['tenant_id']]);
+                    Logger::info("Pagamento Aprovado: Senha {$senha['codigo']} confirmada automaticamente para Unidade {$senha['tenant_id']}.");
                 }
             }
         } catch (Throwable $e) {

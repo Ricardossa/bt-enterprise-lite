@@ -164,6 +164,8 @@ CREATE TABLE IF NOT EXISTS agenda_regras (
     liberacao_dia_semana INT NULL,
     liberacao_hora_inicio TIME DEFAULT '00:00:00',
     liberacao_hora_fim TIME DEFAULT '23:59:59',
+    pausa_inicio TIME NULL,
+    pausa_fim TIME NULL,
     ativo TINYINT(1) DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -175,6 +177,7 @@ CREATE TABLE IF NOT EXISTS agenda_regras (
 CREATE TABLE IF NOT EXISTS agenda_bloqueios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tenant_id INT NOT NULL,
+    operador_id INT NOT NULL DEFAULT 0,
     data DATE NOT NULL,
     hora_inicio TIME,
     hora_fim TIME,

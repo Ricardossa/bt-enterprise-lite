@@ -8,7 +8,10 @@ use BTQueue\Core\Database;
 
 header('Content-Type: application/json; charset=utf-8');
 
-Auth::protegerAPI('ADMIN');
+// [v3.5.2] SeguranÃ§a Calibrada: GET aberto para mural, POST protegido para Admin
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Auth::protegerAPI('ADMIN');
+}
 
 try {
     $tenantId = Auth::tenantId();

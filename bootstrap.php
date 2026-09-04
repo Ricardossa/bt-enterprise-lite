@@ -13,6 +13,21 @@ $versionFile = __DIR__ . '/public/version.json';
 $versionData = file_exists($versionFile) ? json_decode((string)file_get_contents($versionFile), true) : null;
 define('BT_VERSION', $versionData['version'] ?? '4.0.0');
 
+// Endpoints operacionais de diagnóstico não devem ser publicados.
+$restrictedDiagnosticScripts = [
+    'db_sanity_check.php',
+    'diagnostico_clientes.php',
+    'agenda_debug_ui.php',
+    'debug_multi_tickets.php',
+    'deep_audit.php',
+    'go_live_test.php',
+];
+
+if (in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), $restrictedDiagnosticScripts, true)) {
+    http_response_code(404);
+    exit;
+}
+
 // [AUTOLOADER] - Carregamento dinâmico de classes
 spl_autoload_register(function (string $class): void {
     $prefix = 'BTQueue\\Core\\';
@@ -69,14 +84,11 @@ set_exception_handler(function (Throwable $e) {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'success' => false,
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
+            'message' => 'Erro interno. Tente novamente ou contate o suporte.'
         ], JSON_UNESCAPED_UNICODE);
     } else {
-        echo "<h1>❌ ERRO CRÍTICO NO SISTEMA:</h1>";
-        echo "<p><b>Mensagem:</b> " . htmlspecialchars($e->getMessage()) . "</p>";
-        echo "<p><b>Arquivo:</b> " . htmlspecialchars($e->getFile()) . " (Linha " . $e->getLine() . ")</p>";
-        echo "<h3>Stack Trace:</h3><pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+        echo "<h1>Erro interno do sistema</h1>";
+        echo "<p>Tente novamente ou contate o suporte.</p>";
     }
     exit;
 });

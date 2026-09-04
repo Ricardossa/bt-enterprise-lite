@@ -43,18 +43,29 @@ BT.operadores = {
             // v3.5.9: Inteligência de Busca de Foto (Tenant Safe)
             let foto = 'https://cdn-icons-png.flaticon.com/512/147/147144.png';
             if (op.foto_url) {
-                // Se a URL já for completa ou começar com tenants/, mantemos.
-                // Senão, o sistema de upload novo garante que está dentro de uploads/
                 foto = `uploads/${op.foto_url.replace('uploads/', '')}?v=${Date.now()}`;
             }
 
+            const isInativo = op.ativo == 0;
+            const btnToggleLabel = isInativo ? 'REATIVAR' : 'DESATIVAR';
+            const btnToggleIcon = isInativo ? 'fa-check-circle' : 'fa-power-off';
+            const btnClass = isInativo ? 'op-btn-edit' : 'op-btn-delete'; // Reaproveitando estilos
+
+            let statusBadge = '';
+            if (!isInativo) {
+                const statusColor = op.status === 'ONLINE' ? 'var(--success)' : (op.status === 'BREAK' ? 'var(--warning)' : 'var(--text3)');
+                statusBadge = `<span class="badge" style="background:${statusColor}; color:#000; font-size:9px; margin-left:10px;">${op.status}</span>`;
+            } else {
+                statusBadge = `<span class="badge" style="background:#666; color:#fff; font-size:9px; margin-left:10px;">INATIVO</span>`;
+            }
+
             return `
-            <div class="op-card animate__animated animate__fadeIn">
+            <div class="op-card animate__animated animate__fadeIn" style="${isInativo ? 'opacity:0.6; filter:grayscale(0.5);' : ''}">
                 <div class="op-header">
-                    <img src="${foto}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/147/147144.png'" style="width:50px; height:50px; border-radius:50%; border:2px solid var(--secondary); object-fit:cover;">
+                    <img src="${foto}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/147/147144.png'" style="width:50px; height:50px; border-radius:50%; border:2px solid ${isInativo ? '#666' : 'var(--secondary)'}; object-fit:cover;">
                     <div class="op-info">
-                        <h3 class="op-name">${op.nome}</h3>
-                        <span class="op-login">@${op.login}</span>
+                        <h3 class="op-name">${op.nome} ${statusBadge}</h3>
+                        <span class="op-login">@${op.login} | <b style="color:var(--text2)">ID: ${op.id}</b></span>
                     </div>
                 </div>
 
@@ -71,8 +82,8 @@ BT.operadores = {
                     <button class="op-btn op-btn-edit" onclick="BT.operadores.editar(${op.id})">
                         <i class="fa-solid fa-pen-to-square"></i> CONFIGURAR
                     </button>
-                    <button class="op-btn op-btn-delete" onclick="BT.operadores.excluir(${op.id})">
-                        <i class="fa-solid fa-trash-can"></i> REMOVER
+                    <button class="op-btn ${btnClass}" style="${isInativo ? 'background:rgba(24, 201, 100, 0.1); color:var(--success); border-color:var(--success);' : ''}" onclick="BT.operadores.excluir(${op.id})">
+                        <i class="fa-solid ${btnToggleIcon}"></i> ${btnToggleLabel}
                     </button>
                 </div>
             </div>`;
@@ -159,7 +170,7 @@ BT.operadores = {
     },
 
     async excluir(id){
-        if(!confirm('Remover este profissional da equipe?')) return;
+        if(!confirm('Deseja alterar o status administrativo deste profissional?')) return;
         try{
            const resposta = await fetch(this.apiEndpoint, {
                 method: 'DELETE',

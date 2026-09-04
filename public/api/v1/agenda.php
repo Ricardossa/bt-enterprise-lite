@@ -21,7 +21,8 @@ try {
     if ($method === 'GET' && $action === 'listar_barbeiros') {
         if ($tenantId <= 0) throw new Exception("Unidade não identificada.");
 
-        $barbeiros = Database::fetchAll("SELECT id, nome, foto_url FROM operadores WHERE tenant_id = ? AND ativo = 1 AND nivel = 'OPERADOR' ORDER BY nome ASC", [$tenantId]);
+        // [v2.2.0] Filtra apenas profissionais ATIVOS administrativamente E DISPONÍVEIS operacionalmente
+        $barbeiros = Database::fetchAll("SELECT id, nome, foto_url FROM operadores WHERE tenant_id = ? AND ativo = 1 AND status = 'ONLINE' AND nivel = 'OPERADOR' ORDER BY nome ASC", [$tenantId]);
         echo json_encode(['success' => true, 'data' => $barbeiros]);
         exit;
     }
@@ -33,11 +34,14 @@ try {
         $operadorId = (int)($_GET['operador_id'] ?? 0);
 
         if ($operadorId === 0) {
-            // Se for Fila Geral, retorna TODOS os serviços ativos da unidade
-            $servicos = Database::fetchAll("SELECT * FROM servicos WHERE tenant_id = ? AND ativo = 1 ORDER BY nome ASC", [$tenantId]);
+            $servicos = Database::fetchAll("
+                SELECT *, 0 as current_price
+                FROM servicos
+                WHERE tenant_id = ? AND ativo = 1
+                ORDER BY nome ASC", [$tenantId]);
         } else {
             $servicos = Database::fetchAll("
-                SELECT s.*
+                SELECT s.*, 0 as current_price
                 FROM servicos s
                 JOIN operador_servicos os ON os.servico_id = s.id
                 WHERE os.operador_id = ? AND s.tenant_id = ? AND s.ativo = 1
@@ -45,12 +49,22 @@ try {
             ", [$operadorId, $tenantId]);
         }
 
+        // [LITE v4.2.1] FONTE DA VERDADE CENTRALIZADA NO CORE (Suporte a data futura)
+        $dataAlvo = $_GET['data'] ?? null;
+        foreach ($servicos as &$s) {
+            $calc = \BTQueue\Core\ServicoService::getPrecoVigente((int)$s['id'], (int)$tenantId, $dataAlvo);
+            $s['preco_original'] = $calc['original'];
+            $s['current_price'] = $calc['preco'];
+            $s['is_promo_today'] = $calc['is_promo'];
+        }
+        unset($s);
+
         echo json_encode(['success' => true, 'data' => $servicos]);
         exit;
     }
 
     // 2. BUSCAR SLOTS DISPONÍVEIS (PÚBLICO)
-    if ($method === 'GET' && isset($_GET['operador_id'], $_GET['data'])) {
+    if ($method === 'GET' && $action !== 'admin_listar_agendamentos' && isset($_GET['operador_id'], $_GET['data'])) {
         if ($tenantId <= 0) {
              echo json_encode(['success' => false, 'message' => 'Unidade não identificada.', 'debug_host' => $_SERVER['HTTP_HOST']]);
              exit;
@@ -76,7 +90,8 @@ try {
     if ($method === 'GET' && $action === 'get_regras') {
         Auth::protegerAPI('ADMIN');
         $operadorId = (int)($_GET['operador_id'] ?? 0);
-        $regras = Database::fetchAll("SELECT * FROM agenda_regras WHERE operador_id = ? ORDER BY dia_semana ASC", [$operadorId]);
+        $tenantId = Auth::tenantId();
+        $regras = Database::fetchAll("SELECT * FROM agenda_regras WHERE operador_id = ? AND tenant_id = ? ORDER BY dia_semana ASC", [$operadorId, $tenantId]);
 
         // Busca também o horizonte global e radar (v6.9)
         $tenantId = Auth::tenantId();
@@ -139,28 +154,25 @@ try {
                 $defaultServico = Database::fetch("SELECT id FROM servicos WHERE ativo = 1 LIMIT 1")['id'] ?? 1;
             }
 
-            // 2. Insere novas regras (v6.1 Diamond Support)
+            // 2. Insere novas regras (v2.9.0: Suporte a Pausas)
             $stmtIns = $db->prepare("INSERT INTO agenda_regras (
                 tenant_id, operador_id, servico_id, dia_semana, hora_inicio, hora_fim, duracao_slot,
-                liberacao_dia_semana, liberacao_hora_inicio, liberacao_hora_fim, ativo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                pausa_inicio, pausa_fim, ativo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             foreach ($regras as $r) {
                 if (!isset($r['dia_semana'])) continue;
 
-                $libDia = (isset($r['liberacao_dia']) && $r['liberacao_dia'] !== "") ? (int)$r['liberacao_dia'] : null;
-
                 $stmtIns->execute([
                     $tenantId,
                     $operadorId,
-                    $defaultServico, // v3.1.2: Agora usa um ID real em vez de 0
+                    $defaultServico,
                     (int)$r['dia_semana'],
                     (string)($r['hora_inicio'] ?? '08:00'),
                     (string)($r['hora_fim'] ?? '18:00'),
                     (int)($r['duracao_slot'] ?? 30),
-                    $libDia,
-                    (string)($r['liberacao_inicio'] ?? '00:00'),
-                    (string)($r['liberacao_fim'] ?? '23:59'),
+                    !empty($r['pausa_inicio']) ? $r['pausa_inicio'] : null,
+                    !empty($r['pausa_fim']) ? $r['pausa_fim'] : null,
                     (int)($r['ativo'] ?? 0)
                 ]);
             }
@@ -179,12 +191,80 @@ try {
         }
     }
 
+    // --- MÓDULO DE BLOQUEIOS E COMPROMISSOS (v2.9.0) ---
+
+    if ($method === 'GET' && $action === 'listar_bloqueios') {
+        Auth::protegerAPI('ADMIN');
+        $operadorId = (int)($_GET['operador_id'] ?? 0);
+        $sql = "SELECT * FROM agenda_bloqueios WHERE tenant_id = ? ";
+        $params = [$tenantId];
+        if ($operadorId > 0) {
+            $sql .= " AND (operador_id = ? OR operador_id = 0) ";
+            $params[] = $operadorId;
+        }
+        $sql .= " AND data >= CURDATE() ORDER BY data ASC, hora_inicio ASC";
+        $lista = Database::fetchAll($sql, $params);
+        echo json_encode(['success' => true, 'data' => $lista]);
+        exit;
+    }
+
+    if ($method === 'POST' && $action === 'add_bloqueio') {
+        Auth::protegerAPI('ADMIN');
+        $input = json_decode(file_get_contents('php://input'), true);
+        $opId = (int)($input['operador_id'] ?? 0);
+        $data = $input['data'];
+        $inicio = $input['hora_inicio'];
+        $fim = $input['hora_fim'];
+        $motivo = $input['motivo'] ?? 'Compromisso';
+
+        $ok = Database::execute(
+            "INSERT INTO agenda_bloqueios (tenant_id, operador_id, data, hora_inicio, hora_fim, motivo) VALUES (?, ?, ?, ?, ?, ?)",
+            [$tenantId, $opId, $data, $inicio, $fim, $motivo]
+        );
+        echo json_encode(['success' => $ok]);
+        exit;
+    }
+
+    if ($method === 'POST' && $action === 'remove_bloqueio') {
+        Auth::protegerAPI('ADMIN');
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = (int)($input['id'] ?? 0);
+        Database::execute("DELETE FROM agenda_bloqueios WHERE id = ? AND tenant_id = ?", [$id, $tenantId]);
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
     // --- MÓDULO DE SUSPENSÕES (ADMIN) ---
 
     if ($method === 'GET' && $action === 'get_suspensoes') {
         Auth::protegerAPI('ADMIN');
         $lista = Database::fetchAll("SELECT * FROM agenda_suspensoes WHERE tenant_id = ? AND data_fim >= CURDATE() ORDER BY data_fim DESC", [Auth::tenantId()]);
         echo json_encode(['success' => true, 'data' => $lista]);
+        exit;
+    }
+
+    // [NOVO v3.7.9] BUSCA AGENDAMENTOS DO CLIENTE (DASHBOARD MOBILE)
+    if ($method === 'GET' && $action === 'get_agendados_cliente') {
+        $clienteId = (int)($_GET['cliente_id'] ?? 0);
+        $hoje = date('Y-m-d');
+
+        // [v3.8.1] Agora busca o nome do Barbeiro para o Banner de Boas-vindas
+        $sql = "SELECT s.codigo, s.data_agendamento as hora, s.status, o.nome as barbeiro_nome
+                FROM senhas s
+                LEFT JOIN operadores o ON o.id = s.operador_id
+                WHERE s.cliente_id = ?
+                AND DATE(s.data_agendamento) = ?
+                AND s.status IN ('AGENDADO', 'PRESENTE')
+                ORDER BY s.data_agendamento ASC LIMIT 1";
+
+        $res = Database::fetch($sql, [$clienteId, $hoje]);
+
+        if ($res) {
+            $res['hora'] = date('H:i', strtotime($res['hora']));
+            echo json_encode(['success' => true, 'data' => [$res]]);
+        } else {
+            echo json_encode(['success' => true, 'data' => []]);
+        }
         exit;
     }
 
@@ -216,26 +296,212 @@ try {
     }
 
     // 5. REALIZAR CHECK-IN (PÚBLICO NO TOTEM)
+    // ============================================================
+    // [ADM] AGENDAMENTOS — LISTAGEM
+    // ============================================================
+    if ($method === 'GET' && $action === 'admin_listar_agendamentos') {
+        Auth::protegerAPI('ADMIN');
+
+        $tenantId = Auth::tenantId();
+
+        if ($tenantId <= 0) {
+            throw new Exception("Unidade não identificada.");
+        }
+
+        $data = trim((string)($_GET['data'] ?? date('Y-m-d')));
+        $operadorId = (int)($_GET['operador_id'] ?? 0);
+        $busca = trim((string)($_GET['busca'] ?? ''));
+
+        // Validação simples da data
+        $dt = DateTime::createFromFormat('Y-m-d', $data);
+        if (!$dt || $dt->format('Y-m-d') !== $data) {
+            throw new Exception("Data inválida.");
+        }
+
+        $sql = "
+            SELECT
+                s.id,
+                s.uuid,
+                s.codigo,
+                s.cliente_id,
+                s.cliente_uuid,
+                s.nome_cliente,
+                s.whatsapp,
+                s.data_agendamento,
+                s.status,
+                s.tipo_atendimento,
+                s.servico_id,
+                s.operador_id,
+                s.valor_total,
+                s.pagamento_status,
+                s.servicos_desc,
+                o.nome AS barbeiro_nome
+            FROM senhas s
+            LEFT JOIN operadores o
+                ON o.id = s.operador_id
+               AND o.tenant_id = s.tenant_id
+            WHERE s.tenant_id = ?
+              AND DATE(s.data_agendamento) = ?
+              AND s.tipo_atendimento = 'AGENDAMENTO'
+        ";
+
+        $params = [$tenantId, $data];
+
+        if ($operadorId > 0) {
+            $sql .= " AND s.operador_id = ?";
+            $params[] = $operadorId;
+        }
+
+        if ($busca !== '') {
+            $sql .= " AND (
+                s.nome_cliente LIKE ?
+                OR s.whatsapp LIKE ?
+                OR s.codigo LIKE ?
+            )";
+
+            $like = '%' . $busca . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        $sql .= " ORDER BY s.data_agendamento ASC, s.id ASC";
+
+        $agendamentos = Database::fetchAll($sql, $params);
+
+        echo json_encode([
+            'success' => true,
+            'data' => $agendamentos
+        ]);
+        exit;
+    }
+
+    // ============================================================
+    // [ADM] AGENDAMENTOS — CHECK-IN DIRETO POR ID
+    // ============================================================
+    if ($method === 'POST' && $action === 'admin_checkin') {
+        Auth::protegerAPI('ADMIN');
+
+        $tenantId = Auth::tenantId();
+
+        if ($tenantId <= 0) {
+            throw new Exception("Unidade não identificada.");
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $agendamentoId = (int)($input['id'] ?? $input['agendamento_id'] ?? 0);
+
+        if ($agendamentoId <= 0) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'ID do agendamento inválido.'
+            ]);
+            exit;
+        }
+
+        // IMPORTANTE:
+        // O ID sempre é validado junto ao tenant atual.
+        // O ADM nunca consegue alterar uma senha de outra unidade.
+        $agendamento = Database::fetch("
+            SELECT
+                s.id,
+                s.uuid,
+                s.codigo,
+                s.nome_cliente,
+                s.whatsapp,
+                s.data_agendamento,
+                s.status,
+                s.tipo_atendimento,
+                s.servico_id,
+                s.operador_id,
+                s.valor_total,
+                s.pagamento_status,
+                s.servicos_desc,
+                o.nome AS barbeiro_nome
+            FROM senhas s
+            LEFT JOIN operadores o
+                ON o.id = s.operador_id
+               AND o.tenant_id = s.tenant_id
+            WHERE s.id = ?
+              AND s.tenant_id = ?
+              AND s.tipo_atendimento = 'AGENDAMENTO'
+            LIMIT 1
+        ", [$agendamentoId, $tenantId]);
+
+        if (!$agendamento) {
+            http_response_code(404);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Agendamento não localizado.'
+            ]);
+            exit;
+        }
+
+        if ($agendamento['status'] === 'PRESENTE') {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Cliente já está marcado como presente.',
+                'data' => $agendamento
+            ]);
+            exit;
+        }
+
+        if ($agendamento['status'] !== 'AGENDADO') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Este agendamento não pode receber check-in. Status atual: ' . $agendamento['status']
+            ]);
+            exit;
+        }
+
+        Database::execute("
+            UPDATE senhas
+            SET status = 'PRESENTE',
+                updated_at = NOW()
+            WHERE id = ?
+              AND tenant_id = ?
+              AND status = 'AGENDADO'
+        ", [$agendamentoId, $tenantId]);
+
+        $agendamento['status'] = 'PRESENTE';
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Check-in realizado com sucesso.',
+            'data' => $agendamento
+        ]);
+        exit;
+    }
+
     if ($method === 'POST' && $action === 'checkin') {
         $input = json_decode(file_get_contents('php://input'), true);
         $query = strtoupper(trim((string)($input['query'] ?? '')));
+        $clienteUuid = trim((string)($input['cliente_uuid'] ?? '')); // Novo: Check-in via App
         $hoje = date('Y-m-d');
 
-        if (!$query) throw new Exception("Digite seu nome ou código.");
+        if (!$query && !$clienteUuid) throw new Exception("Identificação necessária.");
 
         // [LITE v3.3.5] Verifica regra de liberação antes do check-in
         $tenantId = Auth::tenantId();
         $releaseMode = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'booking_release_mode' AND tenant_id = ? LIMIT 1", [$tenantId])['valor'] ?? 'immediate';
 
         // Busca agendamento para HOJE que ainda não foi atendido
+        // v3.8.0: Suporta busca por Nome, Token ou UUID do Cliente (Mobile)
         $agendamento = Database::fetch(
             "SELECT * FROM senhas
              WHERE status IN ('AGENDADO', 'PRESENTE')
              AND tenant_id = ?
              AND DATE(data_agendamento) = ?
-             AND (cancel_token = ? OR nome_cliente = ?)
+             AND (cancel_token = ? OR nome_cliente = ? OR cliente_uuid = ?)
              LIMIT 1",
-            [$tenantId, $hoje, $query, $query]
+            [$tenantId, $hoje, $query, $query, $clienteUuid]
         );
 
         if (!$agendamento) {
@@ -272,16 +538,18 @@ try {
 
     if ($method === 'GET' && $action === 'check_status') {
         $uuid = $_GET['uuid'] ?? '';
-        $senha = Database::fetch("SELECT status, pagamento_status FROM senhas WHERE uuid = ? LIMIT 1", [$uuid]);
+        $tenantId = Auth::tenantId();
+
+        $senha = Database::fetch("SELECT status, pagamento_status FROM senhas WHERE uuid = ? AND tenant_id = ? LIMIT 1", [$uuid, $tenantId]);
         if (!$senha) {
             echo json_encode(['success' => false, 'message' => 'Nao encontrado.']);
             exit;
         }
 
         // v1.3.0-LITE: No modo teste, permite que o cliente "pule" o pagamento para testar o sucesso
-        $isTest = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'mercadopago_test_mode' LIMIT 1")['valor'] ?? '0';
+        $isTest = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'mercadopago_test_mode' AND tenant_id = ? LIMIT 1", [$tenantId])['valor'] ?? '0';
         if ($isTest === '1' && isset($_GET['simulate_pay'])) {
-            Database::execute("UPDATE senhas SET pagamento_status = 'PAGO', status = 'CONFIRMADO' WHERE uuid = ?", [$uuid]);
+            Database::execute("UPDATE senhas SET pagamento_status = 'PAGO', status = 'CONFIRMADO' WHERE uuid = ? AND tenant_id = ?", [$uuid, $tenantId]);
             echo json_encode(['success' => true, 'status' => 'PAGO']);
             exit;
         }

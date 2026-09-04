@@ -179,7 +179,20 @@ BT.promocoes = {
         } catch (e) { alert("Erro de conexão."); }
     },
 
-    configVisual() {
+    async configVisual() {
+        console.log("🔍 Abrindo Configuração Visual...");
+        const resp = await fetch("api/configuracoes.php");
+        const json = await resp.json();
+        const config = json.data || {};
+
+        console.log("📦 Configs carregadas:", config);
+
+        const btnRemoveLogo = (config.promo_logo && config.promo_logo !== "") ?
+            `<button type="button" onclick="BT.promocoes.removerLogo('promo_logo')" class="bt-button bt-danger" style="margin-top:10px; padding:5px 12px; font-size:10px; height:auto; width:auto;"><i class="fa-solid fa-trash"></i> Remover Logo Atual</button>` : '';
+
+        const btnRemoveCampanha = (config.promo_campanha && config.promo_campanha !== "") ?
+            `<button type="button" onclick="BT.promocoes.removerLogo('promo_campanha')" class="bt-button bt-danger" style="margin-top:10px; padding:5px 12px; font-size:10px; height:auto; width:auto;"><i class="fa-solid fa-trash"></i> Remover Banner Atual</button>` : '';
+
         BT.modal.abrir(
             "Identidade Mobile Premium",
             `
@@ -190,6 +203,7 @@ BT.promocoes = {
                 <small class="text-muted" style="display:block; margin-top:5px; font-size:9px;">
                     <b>Recomendado:</b> 400 × 130 px (Horizontal), fundo transparente. PNG ou WebP.
                 </small>
+                ${btnRemoveLogo}
             </div>
 
             <div style="background:var(--sidebar); padding:15px; border-radius:10px; border:1px solid var(--border);">
@@ -199,6 +213,7 @@ BT.promocoes = {
                 <small class="text-muted" style="display:block; margin-top:5px; font-size:9px;">
                     <b>Recomendado:</b> 1080 × 250 px (Faixa). Formatos: JPG ou WebP.
                 </small>
+                ${btnRemoveCampanha}
             </div>
             `,
             async () => {
@@ -243,6 +258,22 @@ BT.promocoes = {
                 location.reload();
             }
         );
+    },
+
+    async removerLogo(chave) {
+        if (!confirm("Deseja remover esta imagem da identidade mobile?")) return;
+        try {
+            const resp = await fetch("api/configuracoes.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [chave]: "" })
+            });
+            const json = await resp.json();
+            if (json.success) {
+                alert("Imagem removida!");
+                location.reload();
+            }
+        } catch (e) { alert("Erro ao remover."); }
     }
 };
 

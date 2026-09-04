@@ -203,6 +203,21 @@ CREATE TABLE IF NOT EXISTS atividades (
     FOREIGN KEY(tenant_id) REFERENCES tenants(id)
 );
 
+-- 14. ACERTOS FINANCEIROS (BARBEIROS)
+CREATE TABLE IF NOT EXISTS financeiro_acertos (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id INT NOT NULL,
+    operador_id INT NOT NULL,
+    valor DECIMAL(10,2) NOT NULL,
+    data_inicio DATE NOT NULL,
+    data_fim DATE NOT NULL,
+    data_pagamento DATETIME DEFAULT CURRENT_TIMESTAMP,
+    pago_por INT NOT NULL,
+    FOREIGN KEY(tenant_id) REFERENCES tenants(id),
+    FOREIGN KEY(operador_id) REFERENCES operadores(id),
+    FOREIGN KEY(pago_por) REFERENCES operadores(id)
+);
+
 -- 12. PROMOÇÕES
 CREATE TABLE IF NOT EXISTS promocoes (
     id INT PRIMARY KEY AUTO_INCREMENT,

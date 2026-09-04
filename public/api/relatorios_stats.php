@@ -23,10 +23,11 @@ try {
             AVG(TIMESTAMPDIFF(MINUTE, chamada_em, finalizada_em)) as tempo_medio_atendimento
         FROM senhas
         WHERE status = 'FINALIZADA' AND atendente IS NOT NULL
+        AND tenant_id = ?
         AND date(created_at) BETWEEN ? AND ?
         GROUP BY atendente
         ORDER BY total DESC
-    ", $params);
+    ", array_merge([Auth::tenantId()], $params));
 
     // 2. Tempo Médio de Espera por Serviço
     $esperaPorServico = Database::fetchAll("
@@ -37,9 +38,11 @@ try {
         JOIN servicos s ON s.id = sen.servico_id
         WHERE sen.status IN ('CHAMANDO', 'FINALIZADA', 'ATENDIMENTO')
         AND sen.chamada_em IS NOT NULL
+        AND sen.tenant_id = ?
+        AND s.tenant_id = ?
         AND date(sen.created_at) BETWEEN ? AND ?
         GROUP BY s.id
-    ", $params);
+    ", array_merge([Auth::tenantId(), Auth::tenantId()], $params));
 
     // 3. Resumo Global e Origem
     $resumo = Database::fetch("
@@ -51,8 +54,9 @@ try {
             SUM(CASE WHEN COALESCE(tipo_atendimento, 'NORMAL') = 'NORMAL' THEN 1 ELSE 0 END) as total_normais,
             AVG(TIMESTAMPDIFF(MINUTE, emitida_em, chamada_em)) as espera_global
         FROM senhas
-        WHERE date(created_at) BETWEEN ? AND ?
-    ", $params);
+        WHERE tenant_id = ?
+        AND date(created_at) BETWEEN ? AND ?
+    ", array_merge([Auth::tenantId()], $params));
 
     // 5. Situação atual da fila, separada por serviço e tipo de atendimento
     $filaAtual = Database::fetchAll("
@@ -64,10 +68,11 @@ try {
         FROM senhas sen
         JOIN servicos s ON s.id = sen.servico_id
         WHERE sen.status IN ('AGUARDANDO', 'CONGELADA')
+        AND sen.tenant_id = ?
         AND sen.created_at > DATE_SUB(NOW(), INTERVAL 18 HOUR)
         GROUP BY s.id, s.nome
         ORDER BY aguardando DESC, s.nome ASC
-    ");
+    ", [Auth::tenantId()]);
 
     // 4. Movimento por Hora (Picos)
     $movimentoHora = Database::fetchAll("
@@ -75,10 +80,11 @@ try {
             DATE_FORMAT(emitida_em, '%H:00') as hora,
             COUNT(*) as total
         FROM senhas
-        WHERE date(created_at) BETWEEN ? AND ?
+        WHERE tenant_id = ?
+        AND date(created_at) BETWEEN ? AND ?
         GROUP BY hora
         ORDER BY hora ASC
-    ", $params);
+    ", array_merge([Auth::tenantId()], $params));
 
     echo json_encode([
         'success' => true,

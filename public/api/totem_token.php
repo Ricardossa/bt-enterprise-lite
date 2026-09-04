@@ -7,7 +7,10 @@ use BTQueue\Core\Database;
 header('Content-Type: application/json; charset=utf-8');
 
 try {
-    $config = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'qr_security_salt'");
+    $tenantId = \BTQueue\Core\Auth::tenantId();
+    if ($tenantId <= 0) throw new Exception("Unidade não identificada.");
+
+    $config = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'qr_security_salt' AND tenant_id = ?", [$tenantId]);
     $salt = $config['valor'] ?? 'default_salt';
 
     // O token é um hash do salt + minuto atual

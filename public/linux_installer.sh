@@ -9,9 +9,9 @@ APP_NAME="BT Queue Enterprise"
 INSTALL_DIR="/var/www/html/btqueue"
 MASTER_IP="192.168.100.245"
 # URLs Oficiais
-FULL_URL="http://$MASTER_IP:8080/bt-enterprise.zip"
-CHECK_URL="http://$MASTER_IP:8080/api/v1/updates_check.php"
-DOWNLOAD_URL="http://$MASTER_IP:8080/api/v1/updates_download.php"
+FULL_URL="https://$MASTER_IP/bt-enterprise.zip"
+CHECK_URL="https://$MASTER_IP/api/v1/updates_check.php"
+DOWNLOAD_URL="https://$MASTER_IP/api/v1/updates_download.php"
 
 ZIP_FILE="/tmp/bt-package.zip"
 

@@ -14,6 +14,7 @@ BT.tracker = {
     audioUnlocked: false,
 
     async init() {
+        this.injectTicketFromUrl(); // [v5.7.0] Injeta UUID da URL no motor de rastreio
         this.updateTicketList();
         this.startPolling();
         this.checkAudioPermission();
@@ -23,6 +24,27 @@ BT.tracker = {
     checkAudioPermission() {
         if (!this.audioUnlocked) {
             document.getElementById('audio-unlock').style.display = 'block';
+        }
+    },
+
+    injectTicketFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const uuid = urlParams.get('uuid');
+
+        if (uuid) {
+            console.log("🔗 Injetando UUID da URL:", uuid);
+            const saved = localStorage.getItem('bt_premium_tickets');
+            let tickets = saved ? JSON.parse(saved) : [];
+
+            // Verifica se já existe para não duplicar
+            const exists = tickets.some(t => t.cliente_uuid === uuid);
+            if (!exists) {
+                tickets.push({
+                    cliente_uuid: uuid,
+                    created_at: new Date().toISOString()
+                });
+                localStorage.setItem('bt_premium_tickets', JSON.stringify(tickets));
+            }
         }
     },
 
@@ -84,32 +106,49 @@ BT.tracker = {
             const json = await res.json();
 
             if (json.success) {
-                this.renderTickets(json.data);
-                this.checkCalls(json.data);
+                // [v5.7.3] Fluxo Unificado: Filtra duplicados e renderiza
+                const map = new Map();
 
-                // --- LÓGICA DE LIMPEZA INTELIGENTE (v5.6 Diamond) ---
-                // Mantém no LocalStorage apenas senhas que NÃO foram finalizadas há mais de 15 segundos
-                const now = Date.now();
-                const ticketsToKeep = json.data.filter(t => {
+                json.data.forEach(t => {
+                    const key = t.cliente_uuid;
+                    // Prioridade: Não finalizada > Finalizada
+                    if (!map.has(key) || (map.get(key).status === 'FINALIZADA' && t.status !== 'FINALIZADA')) {
+                        map.set(key, t);
+                    }
+                });
+
+                const finalTickets = Array.from(map.values()).filter(t => {
                     if (t.status !== 'FINALIZADA') return true;
 
-                    // Recupera o momento da morte se já existia no cache
                     const savedTickets = JSON.parse(localStorage.getItem('bt_premium_tickets') || '[]');
                     const cached = savedTickets.find(st => st.cliente_uuid === t.cliente_uuid && st.finished_at);
 
                     if (cached) t.finished_at = cached.finished_at;
-                    else t.finished_at = now;
+                    else t.finished_at = Date.now();
 
-                    return (now - t.finished_at < 15000);
+                    return (Date.now() - t.finished_at < 120000); // 2 minutos
                 });
 
-                if (json.data.length > 0) {
-                    this.uuids = ticketsToKeep.map(t => t.cliente_uuid);
-                    localStorage.setItem('bt_premium_tickets', JSON.stringify(ticketsToKeep));
+                this.renderTickets(finalTickets);
+                this.checkCalls(finalTickets);
 
-                    if (ticketsToKeep.length === 0 && json.data.some(t => t.status === 'FINALIZADA')) {
+                if (finalTickets.length > 0) {
+                    this.uuids = finalTickets.map(t => t.cliente_uuid);
+                    localStorage.setItem('bt_premium_tickets', JSON.stringify(finalTickets));
+
+                    // [v5.7.4] Gatilho de Finalização: Se TODAS as senhas na tela estiverem FINALIZADAS
+                    const allFinished = finalTickets.every(t => t.status === 'FINALIZADA');
+
+                    if (allFinished) {
                         if (!this.exitTimer) {
-                            this.exitTimer = setTimeout(() => this.finishSession(), 5000);
+                            console.log("🏁 Atendimento concluído. Redirecionando em 10s...");
+                            this.exitTimer = setTimeout(() => this.finishSession(), 10000);
+                        }
+                    } else {
+                        // Se uma nova senha aparecer ou o status mudar, cancela o timer de saída
+                        if (this.exitTimer) {
+                            clearTimeout(this.exitTimer);
+                            this.exitTimer = null;
                         }
                     }
                 }

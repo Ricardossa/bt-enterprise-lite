@@ -48,11 +48,12 @@ if ($guicheId <= 0) {
 
 $queue = new QueueService();
 $atendenteNome = $operador ? $operador['nome'] : 'Sistema';
+$atendenteId = $operador ? (int)$operador['id'] : null;
 
 if ($senhaId > 0) {
     // CHAMADA ESPECÍFICA (Fura Fila Admin)
     echo json_encode($queue->chamarEspecifico($senhaId, $guicheId, $atendenteNome), JSON_UNESCAPED_UNICODE);
 } else {
     // CHAMADA PADRÃO (Próximo da fila)
-    echo json_encode($queue->chamar($servicoId, $guicheId, $atendenteNome), JSON_UNESCAPED_UNICODE);
+    echo json_encode($queue->chamar($servicoId, $guicheId, $atendenteNome, $atendenteId), JSON_UNESCAPED_UNICODE);
 }

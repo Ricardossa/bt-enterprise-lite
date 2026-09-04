@@ -76,30 +76,50 @@ class Auth
      */
     public static function getCurrentTenant(): ?array
     {
-        // 1. Prioridade para a Sessão
-        if (isset($_SESSION['tenant_id'])) {
-            return [
-                'id' => $_SESSION['tenant_id'],
-                'slug' => $_SESSION['tenant_slug']
-            ];
-        }
-
-        // 2. Tenta pelo Subdomínio (ex: barber1.brandaotech.com.br)
+        // 1. Identifica o Slug pela URL (ex: barber1.brandaotech.com.br)
         $host = $_SERVER['HTTP_HOST'] ?? '';
         $parts = explode('.', $host);
-        if (count($parts) >= 3) {
-            $slug = $parts[0];
-            $tenant = Database::fetch("SELECT id, slug FROM tenants WHERE slug = ? AND status = 'ATIVO'", [$slug]);
+        if ($parts[0] === 'www') array_shift($parts);
+        $urlSlug = (count($parts) >= 3) ? $parts[0] : null;
+
+        // 2. Prioridade para a Sessão (Mas valida se o Slug da Sessão bate com a URL)
+        if (isset($_SESSION['tenant_id'])) {
+            if ($urlSlug === null || $_SESSION['tenant_slug'] === $urlSlug) {
+                return [
+                    'id' => $_SESSION['tenant_id'],
+                    'slug' => $_SESSION['tenant_slug']
+                ];
+            }
+            // Se o slug da sessão for diferente da URL, limpa a sessão para evitar vazamento
+            self::logout();
+        }
+
+        // 3. Tenta pelo Subdomínio detectado
+        if ($urlSlug) {
+            $tenant = Database::fetch("SELECT id, slug, uuid FROM tenants WHERE slug = ? AND status = 'ATIVO'", [$urlSlug]);
             if ($tenant) return $tenant;
         }
 
         // 3. Tenta pelo Header (Mobile APK)
         $tenantUuid = $_SERVER['HTTP_X_BT_TENANT_UUID'] ?? '';
         if ($tenantUuid) {
-            return Database::fetch("SELECT id, slug FROM tenants WHERE uuid = ?", [$tenantUuid]);
+            $tenant = Database::fetch("SELECT id, slug, uuid FROM tenants WHERE uuid = ?", [$tenantUuid]);
+            if ($tenant) return $tenant;
         }
 
-        return Database::fetch("SELECT id, slug FROM tenants LIMIT 1");
+        // 4. [FALLBACK SEGURO]
+        // Se estiver acessando via IP ou se o subdomínio não existir no banco,
+        // e NÃO tivermos um subdomínio válido detectado, pegamos o primeiro (VM-Bancada).
+        // Mas se temos um subdomínio (como paradaobrigatoria...) e ele NÃO está no banco,
+        // o sistema deve deixar o setup.php rodar para criá-lo.
+
+        // Se estamos em setup.php, retornamos nulo para que o instalador possa criar o novo tenant
+        if (strpos($_SERVER['SCRIPT_NAME'], 'setup.php') !== false) {
+            return null;
+        }
+
+        // [v4.1.0] Fim do Fallback Perigoso: Se nÃ£o identificou, retorna nulo para erro de seguranÃ§a
+        return null;
     }
 
     public static function tenantId(): int

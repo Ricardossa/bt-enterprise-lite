@@ -49,6 +49,6 @@ include __DIR__ . '/includes/header.php';
 <script src="assets/js/api.js?v=1"></script>
 <script src="assets/js/config.js?v=1"></script>
 <script src="assets/js/modal.js?v=1"></script>
-<script src="assets/js/operadores.js?v=2"></script>
+<script src="assets/js/operadores.js?v=2.2"></script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

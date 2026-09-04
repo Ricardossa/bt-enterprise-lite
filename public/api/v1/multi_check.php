@@ -34,7 +34,6 @@ try {
     $releaseMode = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'booking_release_mode' AND tenant_id = ? LIMIT 1", [$tenantId])['valor'] ?? 'immediate';
 
     $placeholders = implode(',', array_fill(0, count($uuids), '?'));
-    $params = array_merge($uuids, [$tenantId]);
 
     $sql = "SELECT s.id, $campoCodigo as senha, s.status, s.guiche_id, s.servico_id, s.operador_id, s.cliente_uuid, s.uuid as ticket_uuid,
                    sv.nome as servico_nome, sv.icone as servico_icone, sv.cor as servico_cor, sv.tempo_medio,
@@ -45,7 +44,14 @@ try {
             LEFT JOIN guiches g ON g.id = s.guiche_id
             WHERE (s.cliente_uuid IN ($placeholders) OR s.uuid IN ($placeholders))
             AND s.tenant_id = ?
-            AND DATE(s.created_at) = CURDATE()";
+            AND (
+                s.status IN ('AGUARDANDO', 'CHAMANDO', 'PRESENTE', 'AGENDADO', 'CONGELADA')
+                OR (s.status = 'FINALIZADA' AND s.finalizada_em >= DATE_SUB(NOW(), INTERVAL 2 MINUTE))
+            )
+            AND (
+                DATE(s.created_at) = CURDATE()
+                OR DATE(s.data_agendamento) = CURDATE()
+            )";
 
     // Duplica os UUIDs para os dois conjuntos de placeholders (cliente_uuid e uuid)
     $params = array_merge($uuids, $uuids, [(int)$tenantId]);
@@ -87,7 +93,7 @@ try {
         $results[] = [
             'id' => $s['id'],
             'cliente_uuid' => $s['cliente_uuid'],
-            'servico_id' => (int)$s['servico_id'], // v2.4.1: Vital para ocultação de botões
+            'servico_id' => (int)$s['servico_id'],
             'senha' => !empty($s['nome_cliente']) && ($s['senha'] === 'AGD' || strlen($s['senha']) <= 3) ? $s['nome_cliente'] : $s['senha'],
             'status' => $status,
             'servico' => $s['servico_nome'] ?? 'Atendimento',
@@ -104,12 +110,9 @@ try {
     }
     echo json_encode(['success' => true, 'data' => $results], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    error_log("MULTI_CHECK ERROR: " . $e->getMessage());
-    error_log("MULTI_CHECK FILE: " . $e->getFile() . ":" . $e->getLine());
     echo json_encode([
         'success' => false,
         'message' => 'Sincronizando...',
         'debug' => $e->getMessage()
     ]);
 }
-?>

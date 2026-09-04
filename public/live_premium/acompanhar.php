@@ -33,7 +33,7 @@ $baseUrl = $protocol . $_SERVER['HTTP_HOST'] . str_replace('live_premium/acompan
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
     <title>Acompanhamento - <?= htmlspecialchars($empresa) ?></title>
-    <link rel="stylesheet" href="assets/css/premium.css">
+    <link rel="stylesheet" href="assets/css/premium.css?v=1.2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 </head>
 <body class="noc-theme">
@@ -48,6 +48,11 @@ $baseUrl = $protocol . $_SERVER['HTTP_HOST'] . str_replace('live_premium/acompan
             $logoUrl = null;
             if (!empty($promo_logo)) {
                 $logoUrl = $baseUrl . ltrim($promo_logo, '/');
+               $logoPath = __DIR__ . '/../' . ltrim($promo_logo, '/');
+
+               if (is_file($logoPath)) {
+                   $logoUrl .= '?v=' . filemtime($logoPath);
+               }
             }
         ?>
         <?php if ($logoUrl): ?>
@@ -92,21 +97,35 @@ $baseUrl = $protocol . $_SERVER['HTTP_HOST'] . str_replace('live_premium/acompan
 
         <!-- NOVO BLOCO: CAMPANHA (Rodapé Solto) -->
         <?php if (!empty($promo_campanha)): ?>
+        <?php
+            $campanhaUrl = $baseUrl . ltrim($promo_campanha, '/');
+
+            $campanhaPath = __DIR__ . '/../' . ltrim($promo_campanha, '/');
+
+            if (is_file($campanhaPath)) {
+                $campanhaUrl .= '?v=' . filemtime($campanhaPath);
+            }
+        ?>
         <div style="width:100%; margin-top:20px; border-radius:25px; overflow:hidden; box-shadow:var(--shadow-premium); background:var(--card); border:1px solid var(--border); padding:10px;">
-            <img src="<?= $baseUrl . ltrim($promo_campanha, '/') ?>" alt="Campanha" style="width:100%; border-radius:15px; display:block;">
+            <img src="<?= htmlspecialchars($campanhaUrl) ?>" alt="Campanha" style="width:100%; border-radius:15px; display:block;">
         </div>
         <?php endif; ?>
 
     </main>
 
-    <footer class="footer-signature">
+    <footer class="footer-signature" style="padding-bottom: 40px;">
         <p>Desenvolvido por</p>
-        <img src="http://api.brandaotech.com.br:8080/uploads/logo/logo.png" alt="Brandão Tech">
+        <img src="https://api.brandaotech.com.br/uploads/logo/logo.png" alt="Brandão Tech" style="margin-bottom: 15px;">
+        <div style="display:flex; justify-content:center; gap:15px; margin-top:10px;">
+            <a href="https://api.brandaotech.com.br/registrar.php" target="_blank" style="color:var(--secondary); font-size:11px; font-weight:bold; text-decoration:none; text-transform:uppercase; letter-spacing:1px; border:1px solid var(--border); padding:8px 15px; border-radius:10px; background:rgba(255,255,255,0.02);">
+                <i class="fa-solid fa-rocket"></i> Solicitar Ativação SaaS
+            </a>
+        </div>
     </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="../assets/js/api.js?v=4.8"></script>
-<script src="assets/js/tracker.js?v=2.5.5"></script>
+<script src="assets/js/tracker.js?v=5.7.4"></script>
 </body>
 </html>

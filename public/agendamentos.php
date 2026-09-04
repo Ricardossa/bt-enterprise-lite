@@ -1,0 +1,601 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../bootstrap.php';
+
+use BTQueue\Core\Auth;
+use BTQueue\Core\Database;
+
+Auth::protegerPagina('ADMIN');
+
+$tenantId = Auth::tenantId();
+
+$barbeiros = Database::fetchAll("
+    SELECT id, nome
+    FROM operadores
+    WHERE tenant_id = ?
+      AND ativo = 1
+      AND nivel = 'OPERADOR'
+    ORDER BY nome ASC
+", [$tenantId]);
+
+$pageTitle = 'Agendamentos';
+include __DIR__ . '/includes/header.php';
+?>
+
+<style>
+    .agenda-toolbar {
+        display: grid;
+        grid-template-columns: 180px 220px 1fr auto;
+        gap: 12px;
+        align-items: end;
+        margin-bottom: 20px;
+    }
+
+    .agenda-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .agenda-field label {
+        color: var(--text2);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .agenda-field input,
+    .agenda-field select {
+        width: 100%;
+        box-sizing: border-box;
+        background: var(--sidebar);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 11px 12px;
+        outline: none;
+    }
+
+    .agenda-field input:focus,
+    .agenda-field select:focus {
+        border-color: var(--secondary);
+    }
+
+    .agenda-count {
+        color: var(--text2);
+        font-size: 13px;
+        margin-bottom: 15px;
+    }
+
+    .agenda-table-wrap {
+        overflow-x: auto;
+    }
+
+    .agenda-table {
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
+    }
+
+    .agenda-table th {
+        text-align: left;
+        color: var(--text3);
+        font-size: 11px;
+        text-transform: uppercase;
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .agenda-table td {
+        padding: 13px 10px;
+        border-bottom: 1px solid rgba(255,255,255,.06);
+        vertical-align: middle;
+    }
+
+    .agenda-hora {
+        font-size: 17px;
+        font-weight: 900;
+        color: var(--secondary);
+        white-space: nowrap;
+    }
+
+    .agenda-cliente {
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .agenda-servico {
+        color: var(--text2);
+        font-size: 13px;
+        max-width: 280px;
+    }
+
+    .agenda-profissional {
+        color: var(--text2);
+        font-weight: 700;
+    }
+
+    .agenda-valor {
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .agenda-actions {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .checkin-btn {
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 13px;
+        cursor: pointer;
+        font-weight: 900;
+        font-size: 11px;
+        background: var(--success);
+        color: #000;
+        transition: .2s;
+    }
+
+    .checkin-btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.08);
+    }
+
+    .checkin-btn:disabled {
+        opacity: .55;
+        cursor: wait;
+        transform: none;
+    }
+
+    .presente {
+        color: var(--success);
+        font-weight: 900;
+        font-size: 11px;
+    }
+
+    .cancelado {
+        color: var(--danger);
+        font-weight: 900;
+        font-size: 11px;
+    }
+
+    .agendado {
+        color: var(--warning);
+        font-weight: 900;
+        font-size: 11px;
+    }
+
+    .agenda-empty {
+        text-align: center;
+        padding: 45px 20px;
+        color: var(--text3);
+    }
+
+    .agenda-loading {
+        text-align: center;
+        padding: 35px;
+        color: var(--text2);
+    }
+
+    @media (max-width: 900px) {
+        .agenda-toolbar {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .agenda-toolbar .busca {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .agenda-toolbar {
+            grid-template-columns: 1fr;
+        }
+
+        .agenda-toolbar .busca {
+            grid-column: auto;
+        }
+    }
+</style>
+
+<main class="bt-main">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; gap:15px; flex-wrap:wrap;">
+        <div>
+            <h2>
+                <i class="fa-solid fa-calendar-days"></i>
+                Agendamentos
+            </h2>
+            <p style="color:var(--text2); font-size:14px;">
+                Consulte os horários e faça o check-in diretamente pelo agendamento.
+            </p>
+        </div>
+
+        <button onclick="carregarAgendamentos()" class="bt-button bt-secondary">
+            <i class="fa-solid fa-rotate"></i>
+            ATUALIZAR
+        </button>
+    </div>
+
+    <div class="bt-card">
+
+        <div class="agenda-toolbar">
+
+            <div class="agenda-field">
+                <label for="data">Data</label>
+                <input
+                    type="date"
+                    id="data"
+                    value="<?= date('Y-m-d') ?>"
+                    onchange="carregarAgendamentos()"
+                >
+            </div>
+
+            <div class="agenda-field">
+                <label for="operador">Profissional</label>
+                <select id="operador" onchange="carregarAgendamentos()">
+                    <option value="0">Todos</option>
+
+                    <?php foreach ($barbeiros as $barbeiro): ?>
+                        <option value="<?= (int)$barbeiro['id'] ?>">
+                            <?= htmlspecialchars($barbeiro['nome']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="agenda-field busca">
+                <label for="busca">Buscar cliente, WhatsApp ou código</label>
+                <input
+                    type="text"
+                    id="busca"
+                    placeholder="Digite para pesquisar..."
+                    oninput="debounceBusca()"
+                >
+            </div>
+
+            <button onclick="limparFiltros()" class="bt-button" style="background:#444;">
+                <i class="fa-solid fa-filter-circle-xmark"></i>
+                LIMPAR
+            </button>
+
+        </div>
+
+        <div id="contador" class="agenda-count">
+            Carregando...
+        </div>
+
+        <div class="agenda-table-wrap">
+
+            <table class="agenda-table">
+
+                <thead>
+                    <tr>
+                        <th>Horário</th>
+                        <th>Cliente</th>
+                        <th>WhatsApp</th>
+                        <th>Serviço</th>
+                        <th>Profissional</th>
+                        <th>Valor</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Ação</th>
+                    </tr>
+                </thead>
+
+                <tbody id="listaAgendamentos">
+                    <tr>
+                        <td colspan="8" class="agenda-loading">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            Carregando agendamentos...
+                        </td>
+                    </tr>
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</main>
+
+<script>
+let timerBusca = null;
+
+function escapeHtml(valor) {
+    const div = document.createElement('div');
+    div.textContent = valor ?? '';
+    return div.innerHTML;
+}
+
+function debounceBusca() {
+    clearTimeout(timerBusca);
+
+    timerBusca = setTimeout(() => {
+        carregarAgendamentos();
+    }, 350);
+}
+
+function formatarValor(valor) {
+    const numero = Number(valor || 0);
+
+    return numero.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    });
+}
+
+function formatarHora(data) {
+    if (!data) return '--:--';
+
+    const partes = String(data).split(' ');
+    return partes.length > 1
+        ? partes[1].substring(0, 5)
+        : '--:--';
+}
+
+function statusHtml(status) {
+
+    if (status === 'PRESENTE') {
+        return '<span class="presente"><i class="fa-solid fa-circle-check"></i> PRESENTE</span>';
+    }
+
+    if (status === 'CANCELADO') {
+        return '<span class="cancelado"><i class="fa-solid fa-circle-xmark"></i> CANCELADO</span>';
+    }
+
+    return '<span class="agendado"><i class="fa-solid fa-clock"></i> AGENDADO</span>';
+}
+
+async function carregarAgendamentos() {
+
+    const data = document.getElementById('data').value;
+    const operador = document.getElementById('operador').value;
+    const busca = document.getElementById('busca').value.trim();
+
+    const tbody = document.getElementById('listaAgendamentos');
+    const contador = document.getElementById('contador');
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="8" class="agenda-loading">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                Carregando...
+            </td>
+        </tr>
+    `;
+
+    try {
+
+        const params = new URLSearchParams({
+            action: 'admin_listar_agendamentos',
+            data: data,
+            busca: busca
+        });
+
+        if (operador && operador !== '0') {
+            params.set('operador_id', operador);
+        }
+
+        const resposta = await fetch('api/v1/agenda.php?' + params.toString());
+
+        const resultado = await resposta.json();
+
+        if (!resultado.success) {
+            throw new Error(resultado.message || 'Erro ao carregar agendamentos.');
+        }
+
+        const lista = resultado.data || [];
+
+        contador.innerHTML =
+            `<i class="fa-solid fa-calendar-check"></i> ${lista.length} agendamento(s) encontrado(s).`;
+
+        if (!lista.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="agenda-empty">
+                        <i class="fa-regular fa-calendar-xmark" style="font-size:32px; margin-bottom:10px;"></i>
+                        <div>Nenhum agendamento encontrado para os filtros selecionados.</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = lista.map(item => {
+
+            const status = String(item.status || '');
+
+            let acao = '';
+
+            if (status === 'AGENDADO') {
+                acao = `
+                    <button
+                        class="checkin-btn"
+                        onclick="fazerCheckin(${Number(item.id)}, this)"
+                    >
+                        <i class="fa-solid fa-user-check"></i>
+                        FAZER CHECK-IN
+                    </button>
+                `;
+            } else if (status === 'PRESENTE') {
+                acao = `
+                    <span class="presente">
+                        <i class="fa-solid fa-check"></i>
+                        JÁ PRESENTE
+                    </span>
+                `;
+            } else {
+                acao = '<span style="color:var(--text3);">---</span>';
+            }
+
+            return `
+                <tr>
+                    <td>
+                        <div class="agenda-hora">
+                            ${escapeHtml(formatarHora(item.data_agendamento))}
+                        </div>
+                        <small style="color:var(--text3);">
+                            ${escapeHtml(item.codigo || '')}
+                        </small>
+                    </td>
+
+                    <td>
+                        <div class="agenda-cliente">
+                            ${escapeHtml(item.nome_cliente || 'Cliente não informado')}
+                        </div>
+                    </td>
+
+                    <td>
+                        ${item.whatsapp
+                            ? `<span style="color:var(--success);">
+                                <i class="fa-brands fa-whatsapp"></i>
+                                ${escapeHtml(item.whatsapp)}
+                               </span>`
+                            : '<span style="color:var(--text3);">---</span>'
+                        }
+                    </td>
+
+                    <td>
+                        <div class="agenda-servico">
+                            ${escapeHtml(item.servicos_desc || 'Serviço não informado')}
+                        </div>
+                    </td>
+
+                    <td>
+                        <span class="agenda-profissional">
+                            ${escapeHtml(item.barbeiro_nome || 'Fila Geral')}
+                        </span>
+                    </td>
+
+                    <td>
+                        <span class="agenda-valor">
+                            ${formatarValor(item.valor_total)}
+                        </span>
+                    </td>
+
+                    <td>
+                        ${statusHtml(status)}
+                    </td>
+
+                    <td class="agenda-actions">
+                        ${acao}
+                    </td>
+                </tr>
+            `;
+
+        }).join('');
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        contador.textContent = 'Erro ao carregar agendamentos.';
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="agenda-empty">
+                    <i class="fa-solid fa-triangle-exclamation"
+                       style="font-size:32px; color:var(--danger);"></i>
+
+                    <div style="margin-top:10px;">
+                        ${escapeHtml(erro.message || 'Erro desconhecido.')}
+                    </div>
+
+                    <button
+                        onclick="carregarAgendamentos()"
+                        class="bt-button"
+                        style="margin-top:15px;"
+                    >
+                        <i class="fa-solid fa-rotate"></i>
+                        TENTAR NOVAMENTE
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+async function fazerCheckin(id, botao) {
+
+    if (!id) {
+        alert('ID do agendamento inválido.');
+        return;
+    }
+
+    if (!confirm('Confirmar o check-in deste cliente?')) {
+        return;
+    }
+
+    const textoOriginal = botao.innerHTML;
+
+    botao.disabled = true;
+
+    botao.innerHTML = `
+        <i class="fa-solid fa-spinner fa-spin"></i>
+        PROCESSANDO...
+    `;
+
+    try {
+
+        const resposta = await fetch(
+            'api/v1/agenda.php?action=admin_checkin',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: Number(id)
+                })
+            }
+        );
+
+        const resultado = await resposta.json();
+
+        if (!resultado.success) {
+            throw new Error(
+                resultado.message || 'Não foi possível realizar o check-in.'
+            );
+        }
+
+        if (window.BT && BT.toast && BT.toast.sucesso) {
+            BT.toast.sucesso(resultado.message || 'Check-in realizado com sucesso.');
+        } else {
+            alert('✅ ' + (resultado.message || 'Check-in realizado com sucesso.'));
+        }
+
+        await carregarAgendamentos();
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        botao.disabled = false;
+        botao.innerHTML = textoOriginal;
+
+        if (window.BT && BT.toast && BT.toast.erro) {
+            BT.toast.erro(erro.message || 'Erro ao realizar check-in.');
+        } else {
+            alert('❌ ' + (erro.message || 'Erro ao realizar check-in.'));
+        }
+    }
+}
+
+function limparFiltros() {
+
+    document.getElementById('data').value = '<?= date('Y-m-d') ?>';
+    document.getElementById('operador').value = '0';
+    document.getElementById('busca').value = '';
+
+    carregarAgendamentos();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    carregarAgendamentos();
+});
+</script>
+
+<?php include __DIR__ . '/includes/footer.php'; ?>

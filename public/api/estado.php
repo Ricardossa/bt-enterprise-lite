@@ -24,24 +24,19 @@ try {
         throw new Exception("Sessão ou unidade não identificada.");
     }
 
-    // [LITE v2.7.6] Aceita chamadas de estado focadas apenas na Cadeira (Guichê)
+    // [LITE v3.9.2] Ajuste para Mural Global (TV Smart)
     if ($guicheId > 0) {
-
         $forceOp = null;
         $usuario = Auth::operador();
-
-        // Se for um profissional logado, força a visão dele
         if ($usuario && $usuario['nivel'] === 'OPERADOR') {
             $forceOp = (int)$usuario['id'];
         }
-
         $estado = $queue->estado($servicoId, $guicheId, $forceOp);
-
+    } elseif (isset($_GET['guiche'])) {
+        $estado = $queue->estado($_GET['guiche']);
     } else {
-
-        $guiche = $_GET['guiche'] ?? '01';
-        $estado = $queue->estado($guiche);
-
+        // MODO MURAL: Sem guichê definido, chama o estado global
+        $estado = $queue->estado(null);
     }
 
     // Carrega rótulo personalizado
@@ -55,48 +50,20 @@ try {
 
     $estado['estatisticas'] = $queue->estatisticas();
 
-    // [LITE v3.6.1] Cálculo de Ganhos Líquidos em silêncio (Sem exibir porcentagem)
+    // [LITE v3.6.3] Cálculo de Ganhos Individual + Comissão
+    $estado['comissao_percentual'] = 50.00;
     if (isset($estado['operador_id']) && $estado['operador_id'] > 0) {
         $opCom = Database::fetch("SELECT comissao FROM operadores WHERE id = ?", [$estado['operador_id']]);
         $perc = (float)($opCom['comissao'] ?? 50.00);
-        $estado['ganhos_hoje'] = ($estado['ganhos_hoje'] * $perc) / 100;
+        $estado['comissao_percentual'] = $perc;
+
+        $valorBruto = (float)($estado['ganhos_hoje'] ?? 0);
+        $estado['ganhos_hoje'] = ($valorBruto * $perc) / 100;
     }
 
-    // [LITE SaaS] Busca Histórico Seguro e Filtrado
-    try {
-        // v2.9.0: Usa o NOME do cliente no histórico se for um agendamento
-        $sqlHist = "SELECT s.id,
-                           CASE
-                            WHEN s.nome_cliente IS NOT NULL AND s.nome_cliente != '' AND (s.codigo = 'AGD' OR s.tipo_atendimento = 'AGENDAMENTO')
-                            THEN s.nome_cliente
-                            ELSE s.codigo
-                           END as senha,
-                           g.nome as guiche_nome, s.chamada_em, s.nome_cliente,
-                           CASE WHEN s.nome_cliente IS NOT NULL AND s.nome_cliente != '' THEN 1 ELSE 0 END as is_hospital
-                    FROM senhas s
-                    LEFT JOIN guiches g ON g.id = s.guiche_id
-                    WHERE s.status IN ('CHAMANDO', 'FINALIZADA')
-                    AND s.tenant_id = ?
-                    AND DATE(s.created_at) = CURDATE()";
-
-        // Se for o painel de um profissional, filtra o histórico dele
-        if (isset($estado['operador_id']) && $estado['operador_id'] > 0) {
-            $sqlHist .= " AND s.operador_id = " . (int)$estado['operador_id'];
-        }
-
-        $sqlHist .= " ORDER BY s.chamada_em DESC, s.id DESC LIMIT 5";
-        $estado['historico'] = Database::fetchAll($sqlHist, [$tenantId]);
-
-        foreach ($estado['historico'] as &$item) {
-            if (!empty($item['nome_cliente'])) {
-                $item['is_hospital'] = true;
-                $item['senha'] = $item['nome_cliente'];
-            }
-        }
-        unset($item);
-
-    } catch (Exception $eh) {
-        $estado['historico'] = [];
+    // [LITE v3.9.3] Histórico Automático via Service (Não sobrescrever manualmente)
+    if (!isset($estado['historico'])) {
+        $estado['historico'] = $queue->getHistoricoChamadas(5);
     }
 
     echo json_encode([

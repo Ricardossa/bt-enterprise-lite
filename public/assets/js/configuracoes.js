@@ -27,9 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const mp_token = document.getElementById("mercadopago_token"); // v1.1.0-LITE
     const pix_chave = document.getElementById("pix_chave_estatica"); // v2.8.5-LITE
     const mp_test = document.getElementById("mercadopago_test_mode"); // v1.3.0-LITE
-    const logo = document.getElementById("logo");
     const botao = document.getElementById("btnSalvar");
-    const preview = document.getElementById("empresaLogoPreview");
 
     // Carrega configurações existentes
     try {
@@ -57,7 +55,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 ratioContainer.style.display = (prio_mode.value === 'BALANCED') ? 'block' : 'none';
             }
 
-            if (preview) preview.src = BT.api.url('uploads/logo.png?v=' + Date.now());
         }
     } catch (e) {
         console.error("Erro ao carregar configurações.", e);
@@ -98,21 +95,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const json = await resposta.json();
             if (!json.success) return alert(json.message || "Erro ao salvar empresa.");
 
-            // 2. Upload da Logo Admin
-            if (logo.files.length > 0) {
-                const form = new FormData();
-                form.append("logo", logo.files[0]);
-                form.append("tipo", "admin");
-
-                const upload = await fetch("api/upload_logo.php", {
-                    method: "POST",
-                    body: form
-                });
-
-                const resultado = await upload.json();
-                if (!resultado.success) return alert(resultado.message);
-            }
-
+            // Logo: gerenciada exclusivamente em "Minha Barbearia".
             alert("Configurações salvas com sucesso!");
             location.reload();
 

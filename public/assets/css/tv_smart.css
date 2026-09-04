@@ -1,0 +1,275 @@
+:root {
+    --bg-smart: #040d16;
+    --card-smart: rgba(19, 34, 56, 0.9);
+    --primary-smart: #1565C0;
+    --secondary-smart: #1DB4FF;
+    --accent-smart: #F5A623;
+    --text-smart: #FFFFFF;
+    --border-smart: rgba(30, 53, 82, 0.5);
+}
+
+body {
+    background-color: var(--bg-smart);
+    color: var(--text-smart);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* --- SISTEMA COMPACTO ZOOM-FRIENDLY v2.7.0 --- */
+
+/* Header Fixo em PX para respeitar o ZOOM */
+.tv-header-smart {
+    width: 100%;
+    height: 100px;
+    box-sizing: border-box;
+    padding: 0 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #060f1a;
+    border-bottom: 3px solid var(--border-smart);
+    position: relative;
+    z-index: 100;
+}
+
+.tv-clock-smart {
+    font-size: 50px;
+    font-weight: 900;
+    color: var(--secondary-smart);
+    font-family: monospace;
+    letter-spacing: 2px;
+}
+
+.tv-layout-smart {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    max-width: 100%;
+    height: calc(100vh - 100px);
+    overflow: hidden;
+    background: var(--bg-smart);
+}
+
+@supports (display: grid) {
+    .tv-layout-smart {
+        display: grid;
+        grid-template-columns: 75% 1fr;
+    }
+}
+
+/* Mural Central (Carrossel) */
+.smart-carousel-container {
+    width: 100%;
+    height: 100%;
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.smart-slide {
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.smart-slide.active { display: flex; }
+
+.slide-title-smart {
+    font-size: 40px;
+    font-weight: 900;
+    margin-bottom: 30px;
+    color: var(--secondary-smart);
+    text-transform: uppercase;
+}
+
+/* Promoções e Ofertas */
+.promo-image-smart {
+    max-height: 300px;
+    width: auto;
+    max-width: 90%;
+    object-fit: contain;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+.promo-title-smart {
+    font-size: 54px !important;
+    font-weight: 900;
+    color: #fff;
+    margin: 10px 0;
+}
+
+.promo-price-smart {
+    font-size: 90px !important;
+    font-weight: 900;
+    color: var(--accent-smart);
+    text-shadow: 0 0 25px rgba(245, 166, 35, 0.4);
+}
+
+.promo-desc-smart {
+    font-size: 24px !important;
+    color: var(--text2);
+    max-width: 80%;
+    margin: 10px auto;
+}
+
+/* Sidebar de Histórico */
+.smart-sidebar-history {
+    background: #020810;
+    border-left: 2px solid var(--border-smart);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-sizing: border-box;
+    height: 100%;
+    overflow-y: auto;
+    min-width: 0;
+}
+
+.history-title-smart {
+    font-size: 24px;
+    font-weight: 900;
+    color: #fff;
+    opacity: 0.6;
+    margin-bottom: 20px;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.history-item-smart {
+    background: var(--card-smart);
+    border: 2px solid var(--border-smart);
+    border-radius: 20px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+    animation: fadeInRight 0.5s ease;
+}
+
+.history-ticket {
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--secondary-smart);
+    display: block;
+}
+
+.history-name {
+    font-size: 24px;
+    font-weight: 800;
+    color: #fff;
+    margin: 5px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+}
+
+.history-guiche {
+    font-size: 16px;
+    background: var(--primary-smart);
+    color: #fff;
+    padding: 5px 15px;
+    border-radius: 50px;
+    font-weight: 900;
+    display: inline-block;
+    margin-top: 10px;
+}
+
+/* Estilo da Agenda - v2.7.1 */
+.agenda-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+}
+
+.agenda-card {
+    background: var(--card-smart);
+    border: 2px solid var(--border-smart);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.agenda-time {
+    font-size: 36px;
+    font-weight: 900;
+    color: var(--secondary-smart);
+}
+
+.agenda-name {
+    font-size: 22px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* Efeito Alexa Glow */
+.alexa-ring {
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    width: 0%;
+    height: 6px;
+    background: linear-gradient(90deg, #00CAFF, #0037FF, #00CAFF);
+    box-shadow: 0 0 20px #00CAFF;
+}
+
+.alexa-active .alexa-ring {
+    width: 100%;
+    animation: alexa-flow 2s linear infinite;
+}
+
+@keyframes alexa-flow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+.interruption-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle, #1565C0 0%, #040d16 100%);
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.ticket-giant-smart {
+    font-size: 200px;
+    font-weight: 900;
+    text-shadow: 0 0 50px rgba(29, 180, 255, 0.8);
+}
+
+.name-giant-smart {
+    font-size: 60px;
+    font-weight: 700;
+    text-transform: uppercase;
+}

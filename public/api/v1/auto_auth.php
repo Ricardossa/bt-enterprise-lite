@@ -36,9 +36,15 @@ try {
         'servico_nome'  => $operador['servico_nome']
     ];
 
+    // [v2.2.0] Busca Logo da Unidade
+    $tenantId = Auth::tenantId();
+    $logoRow = Database::fetch("SELECT valor FROM configuracoes WHERE tenant_id = ? AND chave = 'logo_url' LIMIT 1", [$tenantId]);
+    $unitLogo = $logoRow['valor'] ?? '';
+
     echo json_encode([
         'success' => true,
-        'operador' => $_SESSION['operador']
+        'operador' => $_SESSION['operador'],
+        'unit_logo' => $unitLogo
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {

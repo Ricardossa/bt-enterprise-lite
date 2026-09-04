@@ -42,7 +42,7 @@ final class SyncService
                 'uuid' => $uuid,
                 'token' => $token,
                 'produto' => 'BT_QUEUE_ENTERPRISE_LITE',
-                'versao' => Config::get('app.version', '4.0.0'),
+                'versao' => Config::get('app.version', '7.7.0'),
                 'device_uuid' => gethostname(),
                 'device' => [
                     'os' => PHP_OS,
