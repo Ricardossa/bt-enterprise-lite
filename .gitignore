@@ -32,3 +32,5 @@ Thumbs.db
 *.lib
 runtime/
 runtime/
+runtime/
+runtime_old/
