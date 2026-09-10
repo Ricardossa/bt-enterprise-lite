@@ -8,63 +8,79 @@ use PDO;
 use Exception;
 
 /**
- * Responsável pela instalação limpa do banco de dados (Schema + Seeds).
+ * Responsável pela instalação limpa do banco de dados (Schema + Provisionamento Dinâmico).
+ * [DIAMOND v8.5] SaaS-Ready: Não cria mais o tenant "lite" por padrão.
  */
 final class DatabaseInstaller
 {
-    public function install(): array
+    /**
+     * Instala apenas a estrutura de tabelas (Schema).
+     */
+    public function installSchema(): array
     {
-        $results = [];
-
         try {
-            // [PROTEÇÃO] Nunca delete um banco que já possui dados vitais
-            if (Database::exists()) {
-                $hasUuid = Database::fetch("SELECT installation_uuid FROM system_info LIMIT 1");
-
-                if ($hasUuid) {
-                    $results[] = "ℹ️ Banco de dados preservado (Instalação ativa detectada no MariaDB).";
-                    return ['success' => true, 'message' => 'Estrutura preservada.', 'details' => $results];
-                }
-            }
-
-            // 1. Conecta ao banco
             $db = Database::getInstance();
-
-            // 2. Executa o Schema
             $schemaFile = dirname(__DIR__) . '/database/schema.sql';
             if (!file_exists($schemaFile)) throw new Exception("Arquivo schema.sql não encontrado.");
 
             $schemaSql = file_get_contents($schemaFile);
             $db->exec($schemaSql);
-            $results[] = "✅ Estrutura de tabelas criada.";
 
-            // 3. Executa os Seeds
-            $seedsFile = dirname(__DIR__) . '/database/seeds.sql';
-            if (!file_exists($seedsFile)) throw new Exception("Arquivo seeds.sql não encontrado.");
+            return ['success' => true, 'message' => 'Estrutura de tabelas criada com sucesso.'];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => 'Erro ao criar schema: ' . $e->getMessage()];
+        }
+    }
 
-            $seedsSql = file_get_contents($seedsFile);
-            $db->exec($seedsSql);
-            $results[] = "✅ Dados iniciais configurados.";
-
-            // Compatibilidade também para templates gerados antes do Diamond.
-            DiamondActivationService::ensureLicenseColumns();
-
-            // 4. Garante que a URL da Master está sempre configurada no banco inicial
+    /**
+     * Provisiona uma unidade específica no banco de dados.
+     * Substitui o antigo seeds.sql por um provisionamento controlado por Tenant.
+     */
+    public function provisionTenant(int $tenantId, string $uuid, string $name, string $slug): array
+    {
+        try {
+            // 1. Cria o Tenant
             Database::execute(
-                "INSERT IGNORE INTO configuracoes (chave, valor, tipo, descricao) VALUES (?, ?, 'STRING', ?)",
-                [
-                    'master_url',
-                    'http://api.brandaotech.com.br/api/v1/sync.php',
-                    'URL de sincronização com a Platform Master'
-                ]
+                "INSERT IGNORE INTO tenants (id, uuid, slug, nome, status) VALUES (?, ?, ?, ?, 'ATIVO')",
+                [$tenantId, $uuid, $slug, $name]
             );
-            $results[] = "✅ URL da Master garantida no banco.";
 
-            // 5. Gera Identidade da Instalação (UUID Permanente)
-            $uuid = $this->generateUuid();
+            // 2. Configurações Iniciais do Tenant
+            $configs = [
+                'master_url' => 'https://api.brandaotech.com.br/api/v1/sync.php',
+                'app_name' => 'BT Queue Enterprise - ' . $name,
+                'offline_limit_days' => '7',
+                'uuid' => $uuid
+            ];
+
+            foreach ($configs as $key => $val) {
+                Database::execute(
+                    "INSERT IGNORE INTO configuracoes (tenant_id, chave, valor, tipo) VALUES (?, ?, ?, 'STRING')",
+                    [$tenantId, $key, $val]
+                );
+            }
+
+            // 3. Serviço e Guichê Padrão para esta Unidade
             Database::execute(
-                "INSERT IGNORE INTO system_info (installation_uuid, versao, build, hostname, php_version) VALUES (?, ?, ?, ?, ?)",
+                "INSERT IGNORE INTO servicos (tenant_id, codigo, nome, slug, prefixo, icone, cor, ordem) VALUES (?, '1', 'Atendimento Geral', 'atendimento-geral', 'A', '📋', '#1565C0', 1)",
+                [$tenantId]
+            );
+            $servicoId = Database::lastInsertId();
+
+            Database::execute(
+                "INSERT IGNORE INTO guiches (tenant_id, codigo, nome, icone, cor) VALUES (?, '01', 'Mesa 01', '⚙️', '#1565C0')",
+                [$tenantId]
+            );
+            $guicheId = Database::lastInsertId();
+
+            // Vínculo
+            Database::execute("INSERT IGNORE INTO guiche_servicos (guiche_id, servico_id) VALUES (?, ?)", [(int)$guicheId, (int)$servicoId]);
+
+            // 4. System Info (Identidade da Instalação)
+            Database::execute(
+                "INSERT IGNORE INTO system_info (tenant_id, installation_uuid, versao, build, hostname, php_version) VALUES (?, ?, ?, ?, ?, ?)",
                 [
+                    $tenantId,
                     $uuid,
                     Config::get('app.version', '4.0.0'),
                     date('Ymd.His'),
@@ -72,37 +88,19 @@ final class DatabaseInstaller
                     PHP_VERSION
                 ]
             );
-            $results[] = "✅ Identidade gerada: $uuid";
 
-            $migrationResult = (new Migration())->run();
-            if (!$migrationResult['success']) {
-                throw new Exception($migrationResult['message']);
-            }
-            $results[] = "✅ Migrations executadas.";
-
-            return [
-                'success' => true,
-                'message' => 'Banco de dados instalado com sucesso.',
-                'details' => $results,
-                'uuid' => $uuid
-            ];
+            return ['success' => true, 'message' => "Unidade $name provisionada com sucesso."];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Erro na instalação do banco: ' . $e->getMessage()
-            ];
+            return ['success' => false, 'message' => 'Erro no provisionamento: ' . $e->getMessage()];
         }
     }
 
-    private function generateUuid(): string
+    /**
+     * @deprecated Use installSchema + provisionTenant
+     */
+    public function install(): array
     {
-        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0x0fff) | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-        );
+        return $this->installSchema();
     }
 }

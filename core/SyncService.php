@@ -17,10 +17,14 @@ final class SyncService
         $enabled = Config::get('sync.enabled', true);
         if (!$enabled) return ['success' => true, 'message' => 'Sincronização desativada.'];
 
-        // 1. Busca Identidade no Banco
-        $uuidRow = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'uuid' LIMIT 1");
-        $tokenRow = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'token' LIMIT 1");
-        $urlRow = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'master_url' LIMIT 1");
+        // [v3.4.0] Identifica o Tenant para buscar as credenciais corretas no modo SaaS VPS
+        $tenantId = Auth::tenantId();
+        if ($tenantId <= 0) return ['success' => false, 'message' => 'Tenant não identificado.'];
+
+        // 1. Busca Identidade no Banco (Filtrado por Tenant)
+        $uuidRow = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'uuid' AND tenant_id = ? LIMIT 1", [$tenantId]);
+        $tokenRow = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'token' AND tenant_id = ? LIMIT 1", [$tenantId]);
+        $urlRow = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'master_url' AND tenant_id = ? LIMIT 1", [$tenantId]);
 
         $uuid = $uuidRow['valor'] ?? '';
         $token = $tokenRow['valor'] ?? '';

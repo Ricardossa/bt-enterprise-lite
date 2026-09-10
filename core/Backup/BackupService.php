@@ -26,17 +26,21 @@ final class BackupService
     public function run(): array
     {
         try {
+            // [v3.4.0] Identifica o Tenant para modo SaaS VPS
+            $tenantId = Auth::tenantId();
+            if ($tenantId <= 0) throw new Exception("Tenant não identificado.");
+
             // 1. Gera o arquivo de Dump (.sql.gz)
             $backupFile = $this->generateDump();
 
-            // 2. Obtém identidade
-            $identidade = Database::fetch("SELECT uuid, token FROM licencas LIMIT 1");
+            // 2. Obtém identidade filtrada por Tenant
+            $identidade = Database::fetch("SELECT uuid, token FROM licencas WHERE tenant_id = ? LIMIT 1", [$tenantId]);
             if (!$identidade) {
-                throw new Exception("Sistema não ativado. Backup cancelado.");
+                throw new Exception("Sistema não ativado nesta unidade. Backup cancelado.");
             }
 
-            // 3. Obtém URL da Master
-            $urlConfig = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'master_url' LIMIT 1");
+            // 3. Obtém URL da Master filtrada por Tenant
+            $urlConfig = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'master_url' AND tenant_id = ? LIMIT 1", [$tenantId]);
             $masterUrl = $urlConfig ? $urlConfig['valor'] : '';
 
             if (empty($masterUrl)) {

@@ -49,8 +49,13 @@ function activatePin(string $masterUrl, string $pin): array
     }
 
     $payload = $data['data'] ?? [];
-    if (empty($payload['uuid']) || empty($payload['token'])) {
-        return ['success' => false, 'message' => 'Resposta da Platform não contém uuid/token.'];
+    // [DIAMOND v8.7] Validação Rígida de Produto (Lite SaaS Edition)
+    $produtoMaster = $payload['produto'] ?? '';
+    if ($produtoMaster !== 'BT_QUEUE_ENTERPRISE_LITE') {
+        return [
+            'success' => false,
+            'message' => '🛑 CONFLITO DE PRODUTO: Este instalador é exclusivo para BARBEARIA LITE. A licença informada é de: ' . ($produtoMaster ?: 'Outro Produto')
+        ];
     }
 
     return ['success' => true, 'uuid' => $payload['uuid'], 'token' => $payload['token']];
@@ -94,10 +99,10 @@ $all_ok = !in_array(false, $requirements, true);
 // Lógica de Transição de Passos
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // PASSO 2: Inicializar Banco
+    // PASSO 2: Inicializar Banco (Schema apenas)
     if ($step === 2) {
         $installer = new DatabaseInstaller();
-        $res = $installer->install();
+        $res = $installer->installSchema(); // [v8.5] Apenas cria tabelas, não semeia lixo
         if ($res['success']) {
             header('Location: setup.php?step=3&ok=1');
             exit;
@@ -106,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // PASSO 3: MasterSync Provisioning
+    // PASSO 3: MasterSync Provisioning & Tenant Initialization
     if ($step === 3) {
         $url = trim($_POST['master_url'] ?? '');
         $uuid = trim($_POST['uuid'] ?? '');
@@ -141,91 +146,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$url || !$uuid || !$token) {
                 $error = 'Informe UUID/token ou use Carga Rápida / PIN para ativar a licença.';
             } else {
-                // [AUTO-CORREÇÃO] Garante AUTO_INCREMENT na tabela tenants
+
+                // [DIAMOND v8.6] PROVISIONAMENTO INTELIGENTE (SEM CONFLITO)
                 try {
-                    Database::execute("ALTER TABLE tenants MODIFY id INT AUTO_INCREMENT");
-                } catch (\Exception $e) {}
+                    $installer = new DatabaseInstaller();
 
-                // Funções auxiliares para inserção dinâmica
-                $getValidData = function(string $table, array $inputData) {
-                    $columns = \BTQueue\Core\Database::getTableColumns($table);
-                    $validData = [];
-                    foreach ($inputData as $col => $val) {
-                        if (in_array($col, $columns)) $validData[$col] = $val;
+                    // 1. Verifica se esta instalação já existe localmente para preservar o ID
+                    $existingTenant = Database::fetch("SELECT id FROM tenants WHERE uuid = ? LIMIT 1", [$uuid]);
+
+                    if ($existingTenant) {
+                        $tenantId = (int)$existingTenant['id'];
+                    } else {
+                        // 2. Busca o próximo ID disponível (Garante que não pise no Israel ID 35)
+                        $maxId = Database::fetch("SELECT MAX(id) as max_id FROM tenants")['max_id'] ?? 0;
+                        $tenantId = (int)$maxId + 1;
+                        if ($tenantId < 50) $tenantId = 50; // Começa novos tenants do 50 para organizar
                     }
-                    return $validData;
-                };
 
-                $buildInsert = function(string $table, array $data, bool $isReplace = false) {
-                    $cols = array_keys($data);
-                    $placeholders = array_fill(0, count($data), '?');
-                    $cmd = $isReplace ? "REPLACE" : "INSERT";
-                    $sql = "$cmd INTO $table (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $placeholders) . ")";
-                    return [$sql, array_values($data)];
-                };
+                    // Resolve ID e Slug (Usa parte do UUID para o slug se for novo)
+                    $slug = 'bt-unit-' . substr($uuid, 0, 8);
+                    $nome = 'Nova Unidade - ' . strtoupper(substr($uuid, 0, 4));
 
-                // Limpa resíduos para evitar conflitos de FK
-                Database::execute("DELETE FROM tenants WHERE uuid = ?", [$uuid]);
+                    // 3. Provisiona o Tenant Oficial (Preserva ou Cria)
+                    $provisionRes = $installer->provisionTenant($tenantId, $uuid, $nome, $slug);
 
-                $tenantData = $getValidData('tenants', [
-                    'uuid' => $uuid,
-                    'slug' => 'bt-lite-' . substr($uuid, 0, 8),
-                    'nome' => 'BT Barber Lite - Unidade',
-                    'status' => 'ATIVO'
-                ]);
+                    if (!$provisionRes['success']) {
+                        throw new Exception($provisionRes['message']);
+                    }
 
-                list($sqlT, $paramsT) = $buildInsert('tenants', $tenantData);
-                Database::execute($sqlT, $paramsT);
+                    $tenantId = $nextId;
 
-                $tenant = Database::fetch("SELECT id FROM tenants WHERE uuid = ?", [$uuid]);
+                    // 4. Salva o Token e URL da Master no banco local
+                    Database::execute("REPLACE INTO configuracoes (tenant_id, chave, valor) VALUES (?, 'token', ?)", [$tenantId, $token]);
+                    Database::execute("REPLACE INTO configuracoes (tenant_id, chave, valor) VALUES (?, 'master_url', ?)", [$tenantId, $url]);
 
-                if (!$tenant || !isset($tenant['id'])) {
-                    throw new \Exception("Falha crítica ao criar Tenant. Verifique se a tabela 'tenants' suporta AUTO_INCREMENT.");
+                    // 5. Cria Licença Inicial
+                    $licenseKey = strtoupper(bin2hex(random_bytes(6)));
+                    Database::execute(
+                        "INSERT INTO licencas (tenant_id, cliente_id, chave, uuid, token, status, validade)
+                         VALUES (?, 1, ?, ?, ?, 'ATIVA', ?)",
+                        [$tenantId, $licenseKey, $uuid, $token, date('Y-m-d H:i:s', strtotime('+1 year'))]
+                    );
+
+                    header('Location: setup.php?step=4&ok=2&tid=' . $tenantId);
+                    exit;
+                } catch (Exception $e) {
+                    $error = "Falha no provisionamento: " . $e->getMessage();
                 }
-
-                $tenantId = (int)$tenant['id'];
-
-                // Grava configurações vinculadas ao Tenant
-                Database::execute("REPLACE INTO configuracoes (tenant_id, chave, valor) VALUES (?, 'master_url', ?)", [$tenantId, $url]);
-                Database::execute("REPLACE INTO configuracoes (tenant_id, chave, valor) VALUES (?, 'uuid', ?)", [$tenantId, $uuid]);
-                Database::execute("REPLACE INTO configuracoes (tenant_id, chave, valor) VALUES (?, 'token', ?)", [$tenantId, $token]);
-
-                // Garante Cliente Local
-                $cliente = Database::fetch("SELECT id FROM clientes WHERE tenant_id = ? ORDER BY id LIMIT 1", [$tenantId]);
-                if (!$cliente) {
-                    $clientData = $getValidData('clientes', [
-                        'tenant_id' => $tenantId,
-                        'uuid' => generateUuid(),
-                        'nome' => 'Cliente Local',
-                        'documento' => '00000000000',
-                        'whatsapp' => ''
-                    ]);
-                    list($sqlC, $paramsC) = $buildInsert('clientes', $clientData);
-                    Database::execute($sqlC, $paramsC);
-                    $clienteId = Database::lastInsertId();
-                } else {
-                    $clienteId = (int)$cliente['id'];
-                }
-
-                $licenseKey = strtoupper(bin2hex(random_bytes(6)));
-                DiamondActivationService::ensureLicenseColumns();
-
-                $licenseData = $getValidData('licencas', [
-                    'tenant_id' => $tenantId,
-                    'cliente_id' => $clienteId,
-                    'chave' => $licenseKey,
-                    'uuid' => $uuid,
-                    'token' => $token,
-                    'status' => 'ATIVA',
-                    'validade' => date('Y-m-d H:i:s', strtotime('+1 year')),
-                    'whatsapp' => ''
-                ]);
-
-                list($sqlL, $paramsL) = $buildInsert('licencas', $licenseData, true);
-                Database::execute($sqlL, $paramsL);
-
-                header('Location: setup.php?step=4&ok=2');
-                exit;
             }
         }
     }
@@ -234,27 +201,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($step === 4) {
         $user = trim($_POST['user'] ?? '');
         $pass = trim($_POST['pass'] ?? '');
+        $tenantId = (int)($_GET['tid'] ?? 0);
 
         if (!$user || !$pass) {
             $error = "Usuário e senha são obrigatórios.";
         } else {
-            $tenant = Database::fetch("SELECT id FROM tenants ORDER BY id DESC LIMIT 1");
-            if (!$tenant) throw new \Exception("Nenhum Tenant encontrado para criar o administrador.");
+            if ($tenantId <= 0) {
+                // Fallback caso o tid tenha se perdido (pega o último criado)
+                $tenant = Database::fetch("SELECT id FROM tenants ORDER BY id DESC LIMIT 1");
+                $tenantId = (int)($tenant['id'] ?? 0);
+            }
 
-            $tenantId = (int)$tenant['id'];
+            if ($tenantId <= 0) throw new Exception("Nenhum Tenant identificado para o administrador.");
+
             $hash = password_hash($pass, PASSWORD_DEFAULT);
 
             Database::execute("DELETE FROM operadores WHERE login = ? AND tenant_id = ?", [$user, $tenantId]);
-            Database::execute("INSERT INTO operadores (tenant_id, nome, login, senha, nivel, ativo) VALUES (?, ?, ?, ?, 'ADMIN', 1)", [$tenantId, 'Administrador Geral', $user, $hash]);
+            Database::execute("INSERT INTO operadores (tenant_id, nome, login, senha, nivel, ativo) VALUES (?, ?, ?, ?, 'ADMIN', 1)", [$tenantId, 'Administrador Unidade', $user, $hash]);
 
-            $license = Database::fetch('SELECT id FROM licencas WHERE tenant_id = ? LIMIT 1', [$tenantId]);
-            if (!$license) {
-                throw new \RuntimeException('Licença inicial não encontrada.');
-            }
-
-            DiamondActivationService::sealLicense((int) $license['id']);
             file_put_contents(dirname(__DIR__) . '/database/.installed', date('Y-m-d H:i:s'));
-            $success_msg = "SISTEMA INSTALADO COM SUCESSO!";
+            $success_msg = "SISTEMA INSTALADO COM SUCESSO! A Unidade ID #$tenantId está pronta.";
         }
     }
 }
@@ -309,7 +275,7 @@ $pageTitle = 'Setup Wizard - BT Queue Enterprise';
         </div>
     <?php else: ?>
 
-        <form method="POST" action="setup.php?step=<?= $step ?>">
+        <form method="POST" action="setup.php?step=<?= $step ?><?= isset($_GET['tid']) ? '&tid=' . (int)$_GET['tid'] : '' ?>">
             <input type="hidden" name="step" value="<?= $step ?>">
 
             <?php if ($step === 1): ?>

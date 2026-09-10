@@ -22,8 +22,9 @@ class DashboardController
      */
     public function getHealth(): array
     {
-        // [LITE v2.6.1] LICENCIAMENTO LOCAL SIMPLIFICADO
-        $licenca = Database::fetch("SELECT status FROM licencas LIMIT 1");
+        // [v3.5.0] Busca Licença filtrada por Tenant para modo SaaS VPS
+        $tenantId = Auth::tenantId();
+        $licenca = Database::fetch("SELECT status FROM licencas WHERE tenant_id = ? LIMIT 1", [$tenantId]);
         $isBlocked = ($licenca && strtoupper((string)$licenca['status']) !== 'ATIVA');
 
         // --- CHECAGEM DA IMPRESSORA LOCAL (Porta 8001) ---

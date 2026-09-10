@@ -76,8 +76,9 @@ final class IntegrationHubController
 
             Database::commit();
 
-            // Carrega rótulo personalizado para a mensagem de retorno
-            $config = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'label_cliente' LIMIT 1");
+            // [v3.4.0] Carrega rótulo personalizado filtrado por Tenant para modo SaaS VPS
+            $tenantId = Auth::tenantId();
+            $config = Database::fetch("SELECT valor FROM configuracoes WHERE chave = 'label_cliente' AND tenant_id = ? LIMIT 1", [$tenantId]);
             $label = $config['valor'] ?? 'Paciente';
 
             return [
