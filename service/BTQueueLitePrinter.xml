@@ -1,8 +1,0 @@
-<service>
-  <id>BTQueueLitePrinter</id>
-  <name>BT Queue Lite - Impressora</name>
-  <description>Ponte de impressao termica da versao Lite</description>
-  <executable>%BASE%\..\runtime\php\php.exe</executable>
-  <arguments>%BASE%\..\print_bridge.php</arguments>
-  <log mode="roll"></log>
-</service>

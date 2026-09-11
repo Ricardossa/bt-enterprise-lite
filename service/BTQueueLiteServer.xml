@@ -1,8 +1,0 @@
-<service>
-  <id>BTQueueLiteServer</id>
-  <name>BT Queue Lite - Servidor Web</name>
-  <description>Motor de backend da versao Lite (Porta 8120)</description>
-  <executable>%BASE%\..\runtime\php\php.exe</executable>
-  <arguments>-S localhost:8120 -t %BASE%\..\public</arguments>
-  <log mode="roll"></log>
-</service>
