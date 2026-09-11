@@ -2,7 +2,7 @@
 /**
  * Script de Correção: Remover portas 8080/8090 das URLs de sincronização
  * Data: 01/09/2026
- * Descrição: Atualiza todas as master_url no banco para usar apenas http://api.brandaotech.com.br (porta 80 padrão)
+ * Descrição: Atualiza todas as master_url no banco para usar apenas https://api.brandaotech.com.br (HTTPS Seguro)
  */
 
 declare(strict_types=1);
@@ -20,7 +20,7 @@ try {
     // Atualizar master_url em configuracoes
     $result = Database::execute(
         "UPDATE configuracoes 
-         SET valor = 'http://api.brandaotech.com.br/api/v1/sync.php'
+         SET valor = 'https://api.brandaotech.com.br/api/v1/sync.php'
          WHERE chave = 'master_url' 
          AND (valor LIKE '%:8080%' OR valor LIKE '%:8090%')"
     );
@@ -63,7 +63,7 @@ try {
     $elapsed = microtime(true) - $startTime;
     echo "\n✅ Correção concluída em " . round($elapsed, 3) . "s\n";
     echo "\n📝 PRÓXIMOS PASSOS:\n";
-    echo "   1. Testar sincronização: curl -I http://api.brandaotech.com.br/api/v1/sync.php\n";
+    echo "   1. Testar sincronização: curl -I https://api.brandaotech.com.br/api/v1/sync.php\n";
     echo "   2. Forçar MasterSync: php scripts/force_sync.php\n";
     echo "   3. Monitorar logs: tail -f logs/app-$(date +%Y-%m-%d).log\n";
     

@@ -8,7 +8,7 @@
 
 -- 1. CONFIGURAÇÕES PADRÃO (Injetadas via provisionTenant dinamicamente)
 INSERT IGNORE INTO configuracoes (tenant_id, chave, valor, tipo, descricao) VALUES
-(1, 'master_url', 'http://api.brandaotech.com.br/api/v1/sync.php', 'STRING', 'URL de sincronização com a Platform Master'),
+(1, 'master_url', 'https://api.brandaotech.com.br/api/v1/sync.php', 'STRING', 'URL de sincronização com a Platform Master'),
 (1, 'app_name', 'BT Queue Enterprise', 'STRING', 'Nome da aplicação local'),
 (1, 'offline_limit_days', '7', 'INT', 'Dias permitidos de operação sem sincronização');
 

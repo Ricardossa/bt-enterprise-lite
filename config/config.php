@@ -26,7 +26,7 @@ return [
 
     'sync' => [
         'enabled' => true,
-        'endpoint' => 'http://api.brandaotech.com.br',
+        'endpoint' => 'https://api.brandaotech.com.br',
         'token' => 'LITE-TOKEN-2026' // Substituir pelo token da VPS
     ],
 
